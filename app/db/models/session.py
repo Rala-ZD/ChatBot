@@ -61,6 +61,7 @@ class ChatSession(Base):
         order_by="SessionMessage.created_at",
     )
     reports: Mapped[list["Report"]] = relationship(back_populates="session")
+    ratings: Mapped[list["SessionRating"]] = relationship(back_populates="session")
 
     def partner_id_for(self, user_id: int) -> int:
         return self.user2_id if self.user1_id == user_id else self.user1_id

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal
 from datetime import timedelta
 from typing import Any
 
@@ -248,6 +249,8 @@ def build_user(
     referral_code: str | None = None,
     referred_by_user_id: int | None = None,
     points_balance: int = 0,
+    rating_score: Decimal | str | None = None,
+    interests: list[str] | None = None,
     vip_active: bool = False,
 ) -> User:
     return User(
@@ -258,11 +261,12 @@ def build_user(
         referral_code=referral_code or generate_referral_code(),
         referred_by_user_id=referred_by_user_id,
         points_balance=points_balance,
+        rating_score=Decimal(str(rating_score)) if rating_score is not None else None,
         vip_until=utcnow() + timedelta(days=1) if vip_active else None,
         age=25,
         gender=Gender(gender),
         preferred_gender=PreferredGender(preferred_gender),
-        interests_json=[],
+        interests_json=interests or [],
         is_registered=is_registered,
         is_banned=is_banned,
     )

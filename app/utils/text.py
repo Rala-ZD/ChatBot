@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from decimal import Decimal
 from datetime import datetime
 
 from app.utils.enums import PreferredGender
-from app.utils.time import utcnow
+from app.utils.time import humanize_duration, utcnow
 
 
 SELECT_GENDER_BUTTON_TEXT = "\U0001f3af Select Gender"
@@ -54,7 +55,6 @@ SEARCHING_TEXT = "\U0001f50e Looking for a match...\nTap \u274c Cancel to stop."
 SEARCH_CANCELLED_TEXT = "\U0001f6d1 Search cancelled\nYou can try again anytime."
 NO_ACTIVE_SEARCH_TEXT = "No active search."
 SEARCH_MATCHED_TEXT = "\U0001f389 Match Found\nYou're connected."
-MATCH_FOUND_TEXT = "\U0001f389 Match Found\nSay hi and have fun."
 NO_ACTIVE_CHAT_TEXT = "No active chat."
 CHAT_COMMAND_HINT_TEXT = "Use /next, /end, or /report."
 EARLY_CHAT_RESTRICTION_TEXT = (
@@ -63,6 +63,8 @@ EARLY_CHAT_RESTRICTION_TEXT = (
 )
 REPORT_PROMPT_TEXT = "\U0001f6a9 Report Chat\n\nSend a short reason."
 REPORT_DONE_TEXT = "\U0001f6a9 Report Chat\n\nReport sent.\nChat closed."
+FEEDBACK_SAVED_TEXT = "\u2705 Feedback saved"
+FEEDBACK_ALREADY_SAVED_TEXT = "Feedback already saved"
 INVITE_UNAVAILABLE_TEXT = "Invite link unavailable."
 VIP_POINTS_REQUIRED_TEXT = "Need 10 points.\nUse /invite to earn more."
 PAYMENTS_UNAVAILABLE_TEXT = "\U0001f4b3 Buy Points\n\nTelegram Stars checkout is unavailable.\nTry again later."
@@ -91,6 +93,41 @@ def normalize_interests(raw_value: str) -> list[str]:
 def format_interests(interests: Iterable[str]) -> str:
     items = list(interests)
     return ", ".join(items) if items else "Not set"
+
+
+def format_rating_score(rating_score: Decimal | None) -> str:
+    if rating_score is None:
+        return "new"
+    return f"{Decimal(rating_score).quantize(Decimal('0.1'))}"
+
+
+def build_match_found_text(
+    partner_interests: Iterable[str],
+    partner_rating_score: Decimal | None,
+) -> str:
+    formatted_interests = ", ".join(item.title() for item in partner_interests if item.strip())
+    interests_text = formatted_interests or "not set"
+    return (
+        "\U0001f436 Partner found!\n\n"
+        "/next - next chat\n"
+        "/end - stop chat\n\n"
+        f"\U0001f4da Interests: {interests_text}\n"
+        f"\U0001f3c6 Rating: {format_rating_score(partner_rating_score)}\n\n"
+        "\U0001f4a1 Hint: start with something simple \U0001f609"
+    )
+
+
+def build_chat_summary_text(
+    started_at: datetime,
+    ended_at: datetime | None,
+    message_count: int,
+) -> str:
+    return (
+        "Chat ended\n\n"
+        f"Duration: {humanize_duration(started_at, ended_at)}\n"
+        f"Messages: {message_count}\n\n"
+        "How was this chat?"
+    )
 
 
 def format_preferred_gender(value: str | PreferredGender) -> str:

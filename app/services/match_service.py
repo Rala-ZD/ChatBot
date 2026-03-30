@@ -17,7 +17,7 @@ from app.services.ops_service import OpsService
 from app.services.queue_service import QueueService
 from app.services.session_service import SessionService
 from app.utils.enums import PreferredGender, QueueStatus
-from app.utils.text import MATCH_FOUND_TEXT
+from app.utils.text import build_match_found_text
 from app.utils.time import utcnow
 
 CANCEL_LOCK_RETRIES = 5
@@ -200,8 +200,11 @@ class MatchService:
         return int(total_wait / len(joined_values))
 
     async def _notify_match(self, left: User, right: User) -> None:
-        copy = MATCH_FOUND_TEXT
-        for telegram_id in (left.telegram_id, right.telegram_id):
+        recipients = (
+            (left.telegram_id, build_match_found_text(right.interests_json, right.rating_score)),
+            (right.telegram_id, build_match_found_text(left.interests_json, left.rating_score)),
+        )
+        for telegram_id, copy in recipients:
             try:
                 await self.bot.send_message(
                     telegram_id,

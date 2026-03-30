@@ -5,6 +5,7 @@ import asyncio
 from aiogram import Bot
 from aiogram.exceptions import TelegramAPIError
 
+from app.bot.keyboards.chat import chat_summary_keyboard
 from app.bot.keyboards.common import main_menu_keyboard
 from app.db.models.session import ChatSession
 from app.db.repositories.session_repository import SessionRepository
@@ -13,7 +14,8 @@ from app.schemas.session import SessionEndResult
 from app.services.exceptions import ConflictError, NotFoundError
 from app.services.ops_service import OpsService
 from app.services.queue_service import QueueService
-from app.utils.enums import EndReason, SessionStatus
+from app.utils.enums import DeliveryStatus, EndReason, SessionStatus
+from app.utils.text import build_chat_summary_text
 from app.utils.time import utcnow
 
 END_LOCK_RETRIES = 5
@@ -173,18 +175,31 @@ class SessionService:
         reason: EndReason,
         ended_by_user_id: int | None,
     ) -> None:
-        messages = {
-            chat_session.user1.telegram_id: self._build_end_copy(
-                ended_by_user_id == chat_session.user1_id,
-                reason,
-            ),
-            chat_session.user2.telegram_id: self._build_end_copy(
-                ended_by_user_id == chat_session.user2_id,
-                reason,
-            ),
-        }
+        should_send_summary = reason in {EndReason.END, EndReason.NEXT, EndReason.REPORT}
+        summary_text = None
+        if should_send_summary:
+            delivered_count = sum(
+                1
+                for message in chat_session.messages
+                if message.delivery_status == DeliveryStatus.DELIVERED
+            )
+            summary_text = build_chat_summary_text(
+                chat_session.started_at,
+                chat_session.ended_at,
+                delivered_count,
+            )
 
-        for telegram_id, text in messages.items():
+        recipients = (
+            (chat_session.user1_id, chat_session.user1.telegram_id),
+            (chat_session.user2_id, chat_session.user2.telegram_id),
+        )
+
+        for user_id, telegram_id in recipients:
+            initiated_by_user = ended_by_user_id == user_id
+            if reason == EndReason.REPORT and initiated_by_user:
+                continue
+
+            text = self._build_end_copy(initiated_by_user, reason)
             try:
                 await self.bot.send_message(
                     telegram_id,
@@ -198,6 +213,24 @@ class SessionService:
                     telegram_id=telegram_id,
                     error=str(exc),
                 )
+                continue
+
+            if summary_text is None:
+                continue
+
+            try:
+                await self.bot.send_message(
+                    telegram_id,
+                    summary_text,
+                    reply_markup=chat_summary_keyboard(chat_session.id),
+                )
+            except TelegramAPIError as exc:
+                self.logger.warning(
+                    "session_summary_notify_failed",
+                    session_id=chat_session.id,
+                    telegram_id=telegram_id,
+                    error=str(exc),
+                )
 
     def _build_end_copy(self, initiated_by_user: bool, reason: EndReason) -> str:
         if reason == EndReason.NEXT:
@@ -207,7 +240,11 @@ class SessionService:
                 else "\U0001f44b Chat Ended\nYour match moved on."
             )
         if reason == EndReason.REPORT:
-            return "\U0001f44b Chat Ended\nReport saved."
+            return (
+                "\U0001f44b Chat Ended\nReport saved."
+                if initiated_by_user
+                else "\U0001f44b Chat Ended"
+            )
         if reason == EndReason.PARTNER_UNREACHABLE:
             return "\U0001f44b Chat Ended\nYour match is unavailable."
         if reason == EndReason.MODERATION:

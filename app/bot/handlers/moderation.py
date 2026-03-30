@@ -12,7 +12,7 @@ from app.db.models.user import User
 from app.services.exceptions import ConflictError
 from app.services.moderation_service import ModerationService
 from app.services.session_service import SessionService
-from app.utils.enums import EndReason
+from app.utils.enums import EndReason, SessionStatus
 from app.utils.text import REPORT_DONE_TEXT, REPORT_PROMPT_TEXT
 
 router = Router(name="moderation")
@@ -47,14 +47,15 @@ async def submit_report(
     session_id = int(data["session_id"])
     chat_session = await session_service.session_repository.get_with_details(session_id)
     if chat_session is None:
-        raise ConflictError("The chat is no longer active.")
+        raise ConflictError("This chat is no longer available.")
 
     await moderation_service.create_report(chat_session, app_user, message.text or "")
-    await session_service.end_session(
-        chat_session.id,
-        EndReason.REPORT,
-        ended_by_user_id=app_user.id,
-    )
+    if chat_session.status == SessionStatus.ACTIVE:
+        await session_service.end_session(
+            chat_session.id,
+            EndReason.REPORT,
+            ended_by_user_id=app_user.id,
+        )
     await state.clear()
     await message.answer(
         REPORT_DONE_TEXT,

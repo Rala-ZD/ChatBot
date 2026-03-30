@@ -117,8 +117,14 @@ def _reply_keyboard_texts(markup) -> list[str]:
 async def test_matchmaking_matches_compatible_users_once() -> None:
     bot = FakeBot()
     users = {
-        1: build_user(1, gender="male", preferred_gender="female"),
-        2: build_user(2, gender="female", preferred_gender="male"),
+        1: build_user(1, gender="male", preferred_gender="female", interests=["memes"]),
+        2: build_user(
+            2,
+            gender="female",
+            preferred_gender="male",
+            interests=["games", "late night chats"],
+            rating_score="1.4",
+        ),
     }
     waiting_repo = FakeWaitingQueueRepository()
     session_repo = FakeSessionRepository()
@@ -155,6 +161,11 @@ async def test_matchmaking_matches_compatible_users_once() -> None:
     )
     assert ops_service.search_starts == 2
     assert ops_service.matches_created == 1
+    sent_messages = {chat_id: text for chat_id, text in bot.messages}
+    assert "\U0001f4da Interests: Games, Late Night Chats" in sent_messages[users[1].telegram_id]
+    assert "\U0001f3c6 Rating: 1.4" in sent_messages[users[1].telegram_id]
+    assert "\U0001f4da Interests: Memes" in sent_messages[users[2].telegram_id]
+    assert "\U0001f3c6 Rating: new" in sent_messages[users[2].telegram_id]
 
 
 @pytest.mark.asyncio

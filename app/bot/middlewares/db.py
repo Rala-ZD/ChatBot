@@ -14,6 +14,7 @@ from app.db.repositories import (
     ReportRepository,
     SessionMessageRepository,
     SessionRepository,
+    SessionRatingRepository,
     UserRepository,
     WaitingQueueRepository,
 )
@@ -24,6 +25,7 @@ from app.services.moderation_service import ModerationService
 from app.services.ops_service import OpsService
 from app.services.payment_service import PaymentService
 from app.services.queue_service import QueueService
+from app.services.rating_service import RatingService
 from app.services.relay_service import RelayService
 from app.services.session_service import SessionService
 from app.services.user_service import UserService
@@ -53,6 +55,7 @@ class DbSessionMiddleware(BaseMiddleware):
             waiting_queue_repository = WaitingQueueRepository(session)
             session_repository = SessionRepository(session)
             session_message_repository = SessionMessageRepository(session)
+            session_rating_repository = SessionRatingRepository(session)
             point_purchase_repository = PointPurchaseRepository(session)
             report_repository = ReportRepository(session)
             ban_repository = BanRepository(session)
@@ -73,6 +76,11 @@ class DbSessionMiddleware(BaseMiddleware):
                 session_message_repository,
             )
             session_service = SessionService(self.bot, session_repository, export_service, queue_service, ops_service)
+            rating_service = RatingService(
+                session_repository,
+                session_rating_repository,
+                user_repository,
+            )
             moderation_service = ModerationService(
                 self.settings,
                 self.bot,
@@ -117,6 +125,7 @@ class DbSessionMiddleware(BaseMiddleware):
                     "ops_service": ops_service,
                     "match_service": match_service,
                     "session_service": session_service,
+                    "rating_service": rating_service,
                     "relay_service": relay_service,
                     "moderation_service": moderation_service,
                     "admin_service": admin_service,

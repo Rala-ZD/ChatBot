@@ -11,10 +11,10 @@ from app.services.payment_service import PointsPackage
 from app.utils.text import (
     BUY_POINTS_BUTTON_TEXT,
     FREE_BUTTON_TEXT,
-    MATCH_FOUND_TEXT,
     SEARCHING_TEXT,
     SELECT_GENDER_BUTTON_TEXT,
     build_gender_selection_text,
+    build_match_found_text,
     build_points_status_text,
     build_premium_gender_gate_text,
 )
@@ -68,14 +68,14 @@ def test_profile_keyboard_is_balanced_for_mobile() -> None:
 
 def test_premium_gate_text_shows_balance_and_cost() -> None:
     text = build_premium_gender_gate_text(7, 10)
-    assert "✨ Select Gender" in text
+    assert "Select Gender" in text
     assert "Balance: 7 points" in text
     assert "Unlock: 10 points / 1 day" in text
 
 
 def test_points_status_text_shows_active_access() -> None:
     text = build_points_status_text(12, utcnow() + timedelta(days=1))
-    assert "💰 Points Wallet" in text
+    assert "Points Wallet" in text
     assert "Balance: 12 points" in text
     assert "Premium: Active until" in text
     assert "Top up with Stars or earn them free." in text
@@ -83,10 +83,19 @@ def test_points_status_text_shows_active_access() -> None:
 
 def test_gender_selection_text_shows_preference() -> None:
     text = build_gender_selection_text("female", utcnow() + timedelta(days=1), success=True)
-    assert "⭐ Premium Active" in text
+    assert "Premium Active" in text
     assert "Filter: Female" in text
 
 
 def test_search_and_match_copy_use_headlines() -> None:
-    assert SEARCHING_TEXT.startswith("🔎 Looking for a match...")
-    assert MATCH_FOUND_TEXT.startswith("🎉 Match Found")
+    assert "Looking for a match" in SEARCHING_TEXT
+    text = build_match_found_text(["games", "night chats"], None)
+    assert text.startswith("🐶 Partner found!")
+    assert "📚 Interests: Games, Night Chats" in text
+    assert "🏆 Rating: new" in text
+
+
+def test_match_found_text_shows_numeric_rating_when_available() -> None:
+    text = build_match_found_text(["anime"], "1.4")
+    assert "📚 Interests: Anime" in text
+    assert "🏆 Rating: 1.4" in text

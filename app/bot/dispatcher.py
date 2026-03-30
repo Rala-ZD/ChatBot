@@ -13,6 +13,7 @@ from app.bot.handlers.menu import router as menu_router
 from app.bot.handlers.moderation import router as moderation_router
 from app.bot.handlers.payments import router as payments_router
 from app.bot.handlers.profile import router as profile_router
+from app.bot.handlers.ratings import router as ratings_router
 from app.bot.handlers.referral import router as referral_router
 from app.bot.handlers.registration import router as registration_router
 from app.bot.handlers.select_gender import router as select_gender_router
@@ -53,6 +54,7 @@ def create_dispatcher(
     dispatcher.include_router(select_gender_router)
     dispatcher.include_router(matchmaking_router)
     dispatcher.include_router(moderation_router)
+    dispatcher.include_router(ratings_router)
     dispatcher.include_router(chat_router)
     dispatcher.include_router(menu_router)
     dispatcher.include_router(admin_router)

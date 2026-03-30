@@ -40,6 +40,8 @@ class ModerationService:
         reporter: User,
         reason: str,
     ) -> Report:
+        if reporter.id not in {chat_session.user1_id, chat_session.user2_id}:
+            raise AccessDeniedError("You can only report your own chats.")
         partner_id = chat_session.partner_id_for(reporter.id)
         payload = ReportCreate(
             session_id=chat_session.id,
@@ -100,4 +102,3 @@ class ModerationService:
         await self.user_repository.save(user)
         await self.ban_repository.session.commit()
         return active_ban
-

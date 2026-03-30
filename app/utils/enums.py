@@ -55,3 +55,8 @@ class DeliveryStatus(StrEnum):
 class PointPurchaseStatus(StrEnum):
     PENDING = "pending"
     PAID = "paid"
+
+
+class SessionRatingValue(StrEnum):
+    GOOD = "good"
+    BAD = "bad"

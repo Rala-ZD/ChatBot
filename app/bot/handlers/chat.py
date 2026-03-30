@@ -67,7 +67,6 @@ async def end_chat(message: Message, app_user: User, session_service: SessionSer
             reply_markup=main_menu_keyboard(),
         )
         return
-    await message.answer("\U0001f44b Chat Ended\nBack to the menu.", reply_markup=main_menu_keyboard())
 
 
 @router.message(ActiveSessionFilter(required=True))

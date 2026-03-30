@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Enum, ForeignKey, Integer, JSON, String
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, Enum, ForeignKey, Integer, JSON, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -13,6 +14,12 @@ from app.utils.time import utcnow
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (
+        CheckConstraint(
+            "rating_score IS NULL OR (rating_score >= -5.0 AND rating_score <= 5.0)",
+            name="rating_score_range",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
@@ -37,6 +44,7 @@ class User(Base):
         default=PreferredGender.ANY,
     )
     interests_json: Mapped[list[str]] = mapped_column(JSON, default=list)
+    rating_score: Mapped[Decimal | None] = mapped_column(Numeric(2, 1), nullable=True)
     is_registered: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     is_banned: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     consented_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -76,6 +84,14 @@ class User(Base):
         back_populates="user",
         foreign_keys="PointPurchase.user_id",
     )
+    ratings_given: Mapped[list["SessionRating"]] = relationship(
+        back_populates="from_user",
+        foreign_keys="SessionRating.from_user_id",
+    )
+    ratings_received: Mapped[list["SessionRating"]] = relationship(
+        back_populates="to_user",
+        foreign_keys="SessionRating.to_user_id",
+    )
 
     def admin_metadata(self) -> dict[str, Any]:
         return {
@@ -92,6 +108,7 @@ class User(Base):
             "gender": self.gender.value if self.gender else None,
             "preferred_gender": self.preferred_gender.value if self.preferred_gender else None,
             "interests": self.interests_json,
+            "rating_score": float(self.rating_score) if self.rating_score is not None else None,
             "is_banned": self.is_banned,
         }
 

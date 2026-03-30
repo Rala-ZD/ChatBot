@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from types import SimpleNamespace
 
 import pytest
 
 from app.db.models.session import ChatSession
-from app.services.export_service import ExportService
+from app.db.models.session_message import SessionMessage
 from app.services.session_service import SessionService
-from app.utils.enums import EndReason, SessionStatus
+from app.utils.enums import DeliveryStatus, EndReason, MessageType, SessionStatus
 from app.utils.time import utcnow
 
 from tests.conftest import FakeBot, FakeOpsService, FakeSession, build_user
@@ -62,6 +61,12 @@ class FakeQueueService:
         yield True
 
 
+def _inline_keyboard_texts(markup) -> list[str]:
+    if markup is None:
+        return []
+    return [button.text for row in markup.inline_keyboard for button in row]
+
+
 @pytest.mark.asyncio
 async def test_create_session_persists_pair() -> None:
     repository = FakeSessionRepository()
@@ -109,3 +114,87 @@ async def test_end_session_is_idempotent() -> None:
     assert second.already_ended is True
     assert export_service.exported_session_ids == [10]
     assert repository.chat_session.status == SessionStatus.ENDED
+
+
+@pytest.mark.asyncio
+async def test_end_session_sends_summary_to_both_users() -> None:
+    chat_session = ChatSession(
+        id=11,
+        user1_id=1,
+        user2_id=2,
+        status=SessionStatus.ACTIVE,
+        started_at=utcnow(),
+    )
+    chat_session.user1 = build_user(1)
+    chat_session.user2 = build_user(2)
+    chat_session.messages = [
+        SessionMessage(
+            id=1,
+            session_id=11,
+            sender_user_id=1,
+            sender_chat_id=1001,
+            source_message_id=10,
+            message_type=MessageType.TEXT,
+            telegram_message_id=10,
+            delivery_status=DeliveryStatus.DELIVERED,
+            text_content="hi",
+        ),
+        SessionMessage(
+            id=2,
+            session_id=11,
+            sender_user_id=2,
+            sender_chat_id=1002,
+            source_message_id=11,
+            message_type=MessageType.TEXT,
+            telegram_message_id=11,
+            delivery_status=DeliveryStatus.FAILED,
+            text_content="blocked",
+        ),
+    ]
+
+    bot = FakeBot()
+    service = SessionService(
+        bot,
+        FakeSessionRepository(chat_session),
+        FakeExportService(),
+        FakeQueueService(),
+        FakeOpsService(),
+    )
+
+    await service.end_session(11, EndReason.END, ended_by_user_id=1)
+
+    assert len(bot.message_payloads) == 4
+    summary_payloads = [payload for payload in bot.message_payloads if payload.text.startswith("Chat ended")]
+    assert len(summary_payloads) == 2
+    assert all("Messages: 1" in payload.text for payload in summary_payloads)
+    assert all(_inline_keyboard_texts(payload.reply_markup) == ["👍", "👎", "🚩"] for payload in summary_payloads)
+
+
+@pytest.mark.asyncio
+async def test_report_end_skips_summary_for_reporter() -> None:
+    chat_session = ChatSession(
+        id=12,
+        user1_id=1,
+        user2_id=2,
+        status=SessionStatus.ACTIVE,
+        started_at=utcnow(),
+    )
+    chat_session.user1 = build_user(1)
+    chat_session.user2 = build_user(2)
+
+    bot = FakeBot()
+    service = SessionService(
+        bot,
+        FakeSessionRepository(chat_session),
+        FakeExportService(),
+        FakeQueueService(),
+        FakeOpsService(),
+    )
+
+    await service.end_session(12, EndReason.REPORT, ended_by_user_id=1)
+
+    assert [payload.chat_id for payload in bot.message_payloads] == [
+        chat_session.user2.telegram_id,
+        chat_session.user2.telegram_id,
+    ]
+    assert bot.message_payloads[1].text.startswith("Chat ended")
