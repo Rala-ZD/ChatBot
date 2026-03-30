@@ -60,13 +60,9 @@ async def unlock_select_gender(
 
     try:
         updated_user = await user_service.purchase_vip(app_user)
-    except ValidationError:
-        await callback.message.edit_text(
-            build_premium_gender_gate_text(app_user.points_balance, VIP_COST_POINTS),
-            reply_markup=premium_gender_gate_keyboard(),
-        )
-        await callback.answer("Need 10 points", show_alert=True)
-        return
+    except ValidationError as e:
+       await callback.answer(str(e), show_alert=True)
+       return
 
     await callback.message.edit_text(
         build_gender_selection_text(
