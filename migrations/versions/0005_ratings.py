@@ -6,7 +6,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = "0005_session_ratings_and_user_rating_score"
+revision = "0005_ratings"
 down_revision = "0004_scaling_hardening_indexes"
 branch_labels = None
 depends_on = None
