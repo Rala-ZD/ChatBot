@@ -18,7 +18,7 @@ COPY docker ./docker
 RUN pip install --upgrade pip \
     && pip install .
 
-RUN chmod +x docker/entrypoint.sh \
+RUN chmod +x /app/docker/entrypoint.sh \
     && useradd --create-home appuser \
     && chown -R appuser:appuser /app
 
@@ -29,5 +29,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD curl --fail http://127.0.0.1:8080/healthz || exit 1
 
-ENTRYPOINT ["./docker/entrypoint.sh"]
+ENTRYPOINT ["/app/docker/entrypoint.sh"]
 
