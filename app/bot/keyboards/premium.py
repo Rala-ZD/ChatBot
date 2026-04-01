@@ -3,13 +3,29 @@ from __future__ import annotations
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from app.utils.text import BUY_POINTS_BUTTON_TEXT, FREE_BUTTON_TEXT
-
-
 def premium_gender_gate_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    builder.button(text="Unlock", callback_data="selectgender:unlock")
-    builder.button(text=FREE_BUTTON_TEXT, callback_data="payments:free")
-    builder.button(text=BUY_POINTS_BUTTON_TEXT, callback_data="payments:open")
-    builder.adjust(1, 2)
+    builder.button(text="\U0001f389 Get Free VIP", callback_data="selectgender:free")
+    builder.button(text="\u21a9\ufe0f Back", callback_data="selectgender:back")
+    builder.adjust(1, 1)
+    return builder.as_markup()
+
+
+def premium_gender_referral_keyboard() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text="\u2728 Exchange 3 Points for 6 Hours",
+        callback_data="selectgender:referral:exchange",
+    )
+    builder.button(text="\u21a9\ufe0f Back", callback_data="selectgender:referral:back")
+    builder.adjust(1, 1)
+    return builder.as_markup()
+
+
+def premium_points_exchange_keyboard() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text="\u2728 Exchange 3 Points for 6 Hours",
+        callback_data="referral:exchange",
+    )
     return builder.as_markup()

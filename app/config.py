@@ -46,6 +46,21 @@ class Settings(BaseSettings):
         alias="POINTS_PACKAGE_150_XTR",
         ge=1,
     )
+    vip_week_xtr: int | None = Field(
+        default=None,
+        alias="VIP_WEEK_XTR",
+        ge=1,
+    )
+    vip_month_xtr: int | None = Field(
+        default=None,
+        alias="VIP_MONTH_XTR",
+        ge=1,
+    )
+    vip_6months_xtr: int | None = Field(
+        default=None,
+        alias="VIP_6MONTHS_XTR",
+        ge=1,
+    )
     match_scan_limit: int = Field(default=50, alias="MATCH_SCAN_LIMIT", ge=1, le=500)
     queue_lock_ttl: int = Field(default=15, alias="QUEUE_LOCK_TTL", ge=3, le=300)
     rate_limit_commands: int = Field(default=8, alias="RATE_LIMIT_COMMANDS", ge=1)
@@ -131,6 +146,12 @@ class Settings(BaseSettings):
             missing.append("POINTS_PACKAGE_50_XTR")
         if self.points_package_150_xtr is None:
             missing.append("POINTS_PACKAGE_150_XTR")
+        if self.vip_week_xtr is None:
+            missing.append("VIP_WEEK_XTR")
+        if self.vip_month_xtr is None:
+            missing.append("VIP_MONTH_XTR")
+        if self.vip_6months_xtr is None:
+            missing.append("VIP_6MONTHS_XTR")
         if missing:
             missing_text = ", ".join(missing)
             raise ValueError(f"Payment packages require these settings when PAYMENTS_ENABLED is true: {missing_text}")

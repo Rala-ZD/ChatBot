@@ -5,6 +5,7 @@ from aiogram.enums import ChatType
 from aiogram.types import CallbackQuery, Message, PreCheckoutQuery
 
 from app.bot.keyboards.payments import points_package_keyboard, points_wallet_keyboard
+from app.bot.keyboards.registration import preferred_gender_keyboard
 from app.db.models.user import User
 from app.services.payment_service import PaymentService
 from app.services.user_service import UserService
@@ -12,9 +13,11 @@ from app.utils.text import (
     INVITE_UNAVAILABLE_TEXT,
     PAYMENTS_UNAVAILABLE_TEXT,
     build_buy_points_text,
+    build_gender_selection_text,
     build_invite_text,
     build_points_purchase_success_text,
     build_points_status_text,
+    build_vip_payment_success_text,
 )
 
 router = Router(name="payments")
@@ -87,6 +90,7 @@ async def send_points_invoice(
         payload=invoice.payload,
         currency=invoice.currency,
         prices=invoice.prices,
+        start_parameter=invoice.start_parameter,
     )
     await callback.answer("Invoice sent")
 
@@ -110,6 +114,17 @@ async def handle_successful_payment(
         return
 
     result = await payment_service.finalize_successful_payment(app_user, message.successful_payment)
+    if result.purchase_kind == "vip":
+        if not result.already_processed:
+            await message.answer(
+                build_vip_payment_success_text(extended=result.vip_was_extended)
+            )
+        await message.answer(
+            build_gender_selection_text(result.user.preferred_gender, result.user.vip_until),
+            reply_markup=preferred_gender_keyboard(prefix="selectgender:set"),
+        )
+        return
+
     if result.already_processed:
         await message.answer(
             build_points_status_text(result.user.points_balance, result.user.vip_until),

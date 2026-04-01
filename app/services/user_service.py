@@ -12,13 +12,13 @@ from app.db.repositories.user_repository import UserRepository
 from app.schemas.user import RegistrationPayload
 from app.services.exceptions import ValidationError
 from app.utils.referral import extract_referral_code
-from app.utils.text import normalize_interests
+from app.utils.text import VIP_POINTS_REQUIRED_TEXT, normalize_interests
 from app.utils.time import utcnow
 
 
-REFERRAL_REWARD_POINTS = 5
-VIP_COST_POINTS = 10
-VIP_DURATION = timedelta(days=1)
+REFERRAL_REWARD_POINTS = 1
+VIP_COST_POINTS = 3
+VIP_DURATION = timedelta(hours=6)
 LAST_ACTIVE_TTL_SECONDS = 300
 
 
@@ -26,6 +26,13 @@ LAST_ACTIVE_TTL_SECONDS = 300
 class UserAccessResult:
     user: User
     created: bool
+
+
+def extend_vip_access(user: User, duration: timedelta) -> User:
+    now = utcnow()
+    vip_start = user.vip_until if user.vip_until and user.vip_until > now else now
+    user.vip_until = vip_start + duration
+    return user
 
 
 class UserService:
@@ -101,6 +108,9 @@ class UserService:
         await self.user_repository.session.commit()
         return user
 
+    async def count_registered_referrals(self, user: User) -> int:
+        return await self.user_repository.count_registered_referrals(user.id)
+
     def ensure_registered(self, user: User) -> None:
         if not user.is_registered:
             raise ValidationError("Finish setup with /start first.")
@@ -125,17 +135,19 @@ class UserService:
         await self.user_repository.session.commit()
 
     async def purchase_vip(self, user: User) -> User:
-        self.ensure_registered(user)
-        if user.points_balance < VIP_COST_POINTS:
-            raise ValidationError("You need 10 points to unlock premium.")
+        locked_user = await self.user_repository.get_by_id_for_update(user.id)
+        if locked_user is None:
+            raise ValidationError("Account unavailable. Try again.")
 
-        user.points_balance -= VIP_COST_POINTS
-        now = utcnow()
-        vip_start = user.vip_until if user.vip_until and user.vip_until > now else now
-        user.vip_until = vip_start + VIP_DURATION
-        await self.user_repository.save(user)
+        self.ensure_registered(locked_user)
+        if locked_user.points_balance < VIP_COST_POINTS:
+            raise ValidationError(VIP_POINTS_REQUIRED_TEXT)
+
+        locked_user.points_balance -= VIP_COST_POINTS
+        extend_vip_access(locked_user, VIP_DURATION)
+        await self.user_repository.save(locked_user)
         await self.user_repository.session.commit()
-        return user
+        return locked_user
 
     def is_vip_active(self, user: User) -> bool:
         return user.has_active_vip()

@@ -7,7 +7,7 @@ Telegram anonymous chat bot built with Python 3.12+, aiogram 3.x, FastAPI, Postg
 - Registration with age, gender, nickname, interests, referrals, points, and premium status
 - Anonymous 1:1 matchmaking and chat relay
 - Reports and moderation commands
-- Telegram Stars point top-ups
+- Telegram Stars point top-ups and VIP plan checkout
 - VIP gender selection
 - FastAPI health endpoints plus a protected ops stats endpoint
 - Redis-backed FSM storage for bot flows
@@ -34,6 +34,9 @@ Copy `.env.example` to `.env` and update these values:
 - `POINTS_PACKAGE_10_XTR`
 - `POINTS_PACKAGE_50_XTR`
 - `POINTS_PACKAGE_150_XTR`
+- `VIP_WEEK_XTR`
+- `VIP_MONTH_XTR`
+- `VIP_6MONTHS_XTR`
 
 Current delivery modes:
 
@@ -110,6 +113,9 @@ PAYMENTS_CURRENCY=XTR
 POINTS_PACKAGE_10_XTR=25
 POINTS_PACKAGE_50_XTR=100
 POINTS_PACKAGE_150_XTR=250
+VIP_WEEK_XTR=75
+VIP_MONTH_XTR=250
+VIP_6MONTHS_XTR=1200
 ```
 
 Notes:
@@ -117,6 +123,7 @@ Notes:
 - Digital goods inside Telegram should use Telegram Stars.
 - Stars invoices must use `XTR`.
 - No third-party provider token is required for this flow.
+- VIP plan purchases extend premium access directly after payment.
 
 Official references:
 

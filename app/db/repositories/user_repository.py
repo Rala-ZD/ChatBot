@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from aiogram.types import User as TelegramUser
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.user import User
@@ -33,6 +33,15 @@ class UserRepository:
             select(User).where(User.referral_code == referral_code.upper())
         )
         return result.scalar_one_or_none()
+
+    async def count_registered_referrals(self, user_id: int) -> int:
+        result = await self.session.execute(
+            select(func.count(User.id)).where(
+                User.referred_by_user_id == user_id,
+                User.is_registered.is_(True),
+            )
+        )
+        return int(result.scalar_one() or 0)
 
     async def upsert_from_telegram(
         self,

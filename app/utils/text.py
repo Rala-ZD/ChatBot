@@ -73,7 +73,7 @@ FEEDBACK_THANK_YOU_TEXT = "\U0001f49c Thanks! Your feedback improves future matc
 SPAM_REPORTED_TEXT = "\U0001f6ab Spam / Ads reported. Thanks for helping keep chats safe."
 CHAT_UNAVAILABLE_TEXT = "\u26a0\ufe0f This chat is no longer available"
 INVITE_UNAVAILABLE_TEXT = "Invite link unavailable."
-VIP_POINTS_REQUIRED_TEXT = "Need 10 points.\nUse /invite to earn more."
+VIP_POINTS_REQUIRED_TEXT = "Need 3 points to unlock 6 hours of premium"
 PAYMENTS_UNAVAILABLE_TEXT = "\U0001f4b3 Buy Points\n\nTelegram Stars checkout is unavailable.\nTry again later."
 
 
@@ -154,9 +154,10 @@ def format_premium_access_status(vip_until: datetime | None) -> str:
 def build_invite_text(bot_username: str, referral_code: str) -> str:
     link = f"https://t.me/{bot_username}?start=ref_{referral_code}"
     return (
-        "\U0001f381 Invite Friends\n\n"
-        "Earn 5 points for every friend\n"
-        "who finishes setup.\n\n"
+        "\U0001f389 Get Free VIP\n\n"
+        "Invite friends and earn premium points.\n\n"
+        "1 friend = 1 point\n"
+        "3 points = 6 hours premium\n\n"
         f"Your link\n{link}"
     )
 
@@ -202,13 +203,36 @@ def build_vip_unlocked_text(points_balance: int, vip_until: datetime | None) -> 
     )
 
 
-def build_premium_gender_gate_text(points_balance: int, cost_points: int) -> str:
+def build_vip_payment_success_text(*, extended: bool) -> str:
+    if extended:
+        return "\U0001f48e VIP extended successfully!"
+    return "\U0001f48e VIP activated successfully!"
+
+
+def build_premium_gender_gate_text() -> str:
     return (
-        "\u2728 Select Gender\n\n"
-        "Choose who you'd rather match with.\n"
-        "Upgrade for sharper matching.\n\n"
-        f"Balance: {points_balance} points\n"
-        f"Unlock: {cost_points} points / 1 day"
+        "\U0001f48e Premium Matching\n\n"
+        "Invite 3 friends to unlock 6 hours of premium.\n\n"
+        "\U0001f3af Search by gender\n"
+        "\u2728 Better matching"
+    )
+
+
+def build_referral_premium_text(
+    bot_username: str,
+    referral_code: str,
+    points_balance: int,
+    referral_count: int,
+) -> str:
+    link = f"https://t.me/{bot_username}?start=ref_{referral_code}"
+    return (
+        "\U0001f389 Get Free VIP\n\n"
+        "Invite friends and earn premium points.\n\n"
+        f"\U0001f48e Your points: {points_balance}\n"
+        f"\U0001f465 Joined by your link: {referral_count}\n\n"
+        "1 friend = 1 point\n"
+        "3 points = 6 hours premium\n\n"
+        f"Your link\n{link}"
     )
 
 
