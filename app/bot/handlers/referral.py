@@ -11,6 +11,7 @@ from app.services.exceptions import ValidationError
 from app.services.user_service import UserService
 from app.utils.text import (
     INVITE_UNAVAILABLE_TEXT,
+    PREMIUM_SCREEN_UNAVAILABLE_TEXT,
     VIP_POINTS_REQUIRED_TEXT,
     build_referral_premium_text,
     build_vip_unlocked_text,
@@ -19,6 +20,29 @@ from app.utils.text import (
 router = Router(name="referral")
 router.message.filter(F.chat.type == ChatType.PRIVATE)
 router.callback_query.filter(F.message.chat.type == ChatType.PRIVATE)
+
+
+def _extract_owner_telegram_id(data: str | None) -> int | None:
+    if data is None:
+        return None
+    try:
+        return int(data.rsplit(":", maxsplit=1)[-1])
+    except (TypeError, ValueError):
+        return None
+
+
+async def _ensure_callback_owner(callback: CallbackQuery, app_user: User) -> bool:
+    owner_telegram_id = _extract_owner_telegram_id(callback.data)
+    from_user = callback.from_user
+    if (
+        from_user is None
+        or owner_telegram_id is None
+        or from_user.id != owner_telegram_id
+        or app_user.telegram_id != from_user.id
+    ):
+        await callback.answer(PREMIUM_SCREEN_UNAVAILABLE_TEXT, show_alert=True)
+        return False
+    return True
 
 
 async def _build_referral_summary(
@@ -60,7 +84,7 @@ async def points_handler(message: Message, app_user: User, user_service: UserSer
 
     await message.answer(
         summary,
-        reply_markup=premium_points_exchange_keyboard(),
+        reply_markup=premium_points_exchange_keyboard(app_user.telegram_id),
     )
 
 
@@ -78,12 +102,14 @@ async def vip_handler(message: Message, app_user: User, user_service: UserServic
     )
 
 
-@router.callback_query(F.data == "referral:exchange")
+@router.callback_query(F.data.startswith("referral:exchange"))
 async def exchange_points_from_referral_tab(
     callback: CallbackQuery,
     app_user: User,
     user_service: UserService,
 ) -> None:
+    if not await _ensure_callback_owner(callback, app_user):
+        return
     user_service.ensure_registered(app_user)
     if callback.message is None:
         await callback.answer()
