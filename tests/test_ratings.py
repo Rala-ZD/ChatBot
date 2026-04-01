@@ -6,13 +6,18 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.bot.handlers.ratings import rate_chat_bad, rate_chat_good, report_from_summary
+from app.bot.handlers.ratings import rate_chat_bad, rate_chat_good, rate_chat_okay, report_from_summary
 from app.bot.handlers.moderation import submit_report
 from app.db.models.session import ChatSession
 from app.services.exceptions import AccessDeniedError, ConflictError
 from app.services.rating_service import RatingService
 from app.utils.enums import EndReason, SessionRatingValue, SessionStatus
-from app.utils.text import CHAT_UNAVAILABLE_TEXT, FEEDBACK_SAVED_TEXT, REPORT_DONE_TEXT
+from app.utils.text import (
+    CHAT_UNAVAILABLE_TEXT,
+    FEEDBACK_THANK_YOU_TEXT,
+    REPORT_DONE_TEXT,
+    SPAM_REPORTED_TEXT,
+)
 from app.utils.time import utcnow
 
 from tests.conftest import FakeSession, build_user
@@ -355,11 +360,17 @@ async def test_report_submission_clears_stale_session_id() -> None:
 class FakeCallbackMessage:
     answers: list[str] | None = None
     reply_markup_edits: list[object | None] | None = None
+    text_edits: list[tuple[str, object | None]] | None = None
 
     async def answer(self, text: str, **_: object) -> None:
         if self.answers is None:
             self.answers = []
         self.answers.append(text)
+
+    async def edit_text(self, text: str, reply_markup=None, **_: object) -> None:
+        if self.text_edits is None:
+            self.text_edits = []
+        self.text_edits.append((text, reply_markup))
 
     async def edit_reply_markup(self, reply_markup=None, **_: object) -> None:
         if self.reply_markup_edits is None:
@@ -383,22 +394,22 @@ class FakeCallbackQuery:
 
 @pytest.mark.asyncio
 async def test_report_from_summary_rejects_foreign_session_id() -> None:
-    chat_session, user1, _ = _ended_session()
+    chat_session, _, _ = _ended_session()
     session_service = FakeEndedSessionService(chat_session)
+    moderation_service = FakeModerationService()
     callback = FakeCallbackQuery(
-        data=f"chatrate:report:{chat_session.id}",
+        data=f"chatrate:spam:{chat_session.id}",
         message=FakeCallbackMessage(),
     )
-    state = FakeState(chat_session.id)
     outsider = build_user(999)
 
-    await report_from_summary(callback, state, outsider, session_service)
+    await report_from_summary(callback, outsider, session_service, moderation_service)
 
-    assert state.state is None
-    assert state.data == {"session_id": chat_session.id}
+    assert moderation_service.calls == []
     assert callback.answered == [{"text": CHAT_UNAVAILABLE_TEXT, "show_alert": True}]
     assert callback.message.answers is None
     assert callback.message.reply_markup_edits == [None]
+    assert callback.message.text_edits is None
 
 
 @pytest.mark.asyncio
@@ -407,15 +418,15 @@ async def test_report_from_summary_rejects_active_session_id() -> None:
     chat_session.status = SessionStatus.ACTIVE
     chat_session.ended_at = None
     session_service = FakeEndedSessionService(chat_session)
+    moderation_service = FakeModerationService()
     callback = FakeCallbackQuery(
-        data=f"chatrate:report:{chat_session.id}",
+        data=f"chatrate:spam:{chat_session.id}",
         message=FakeCallbackMessage(),
     )
-    state = FakeState(chat_session.id)
 
-    await report_from_summary(callback, state, user1, session_service)
+    await report_from_summary(callback, user1, session_service, moderation_service)
 
-    assert state.state is None
+    assert moderation_service.calls == []
     assert callback.answered == [{"text": CHAT_UNAVAILABLE_TEXT, "show_alert": True}]
     assert callback.message.reply_markup_edits == [None]
 
@@ -493,26 +504,100 @@ async def test_rate_chat_good_rejects_invalid_callback_data() -> None:
 
 
 @pytest.mark.asyncio
+async def test_great_feedback_replaces_summary_and_keeps_positive_rating_behavior() -> None:
+    chat_session, user1, user2 = _ended_session()
+    service, _, user_repository = _rating_service(chat_session, {user1.id: user1, user2.id: user2})
+    callback = FakeCallbackQuery(
+        data=f"chatrate:great:{chat_session.id}",
+        message=FakeCallbackMessage(),
+    )
+
+    await rate_chat_good(callback, user1, service)
+
+    assert callback.answered == [{"text": None, "show_alert": False}]
+    assert callback.message.text_edits == [(FEEDBACK_THANK_YOU_TEXT, None)]
+    assert user_repository.users[user2.id].rating_score == Decimal("5.0")
+
+
+@pytest.mark.asyncio
+async def test_okay_feedback_is_neutral_and_replaces_summary() -> None:
+    chat_session, user1, user2 = _ended_session()
+    service, session_rating_repository, user_repository = _rating_service(
+        chat_session,
+        {user1.id: user1, user2.id: user2},
+    )
+    callback = FakeCallbackQuery(
+        data=f"chatrate:okay:{chat_session.id}",
+        message=FakeCallbackMessage(),
+    )
+
+    await rate_chat_okay(callback, user1, FakeEndedSessionService(chat_session))
+
+    assert callback.answered == [{"text": None, "show_alert": False}]
+    assert callback.message.text_edits == [(FEEDBACK_THANK_YOU_TEXT, None)]
+    assert session_rating_repository.created_keys == set()
+    assert user_repository.users[user2.id].rating_score == Decimal("5.0")
+
+
+@pytest.mark.asyncio
+async def test_bad_feedback_replaces_summary_and_keeps_negative_rating_behavior() -> None:
+    chat_session, user1, user2 = _ended_session()
+    service, _, user_repository = _rating_service(chat_session, {user1.id: user1, user2.id: user2})
+    callback = FakeCallbackQuery(
+        data=f"chatrate:bad:{chat_session.id}",
+        message=FakeCallbackMessage(),
+    )
+
+    await rate_chat_bad(callback, user1, service)
+
+    assert callback.answered == [{"text": None, "show_alert": False}]
+    assert callback.message.text_edits == [(FEEDBACK_THANK_YOU_TEXT, None)]
+    assert user_repository.users[user2.id].rating_score == Decimal("4.8")
+
+
+@pytest.mark.asyncio
+async def test_spam_feedback_creates_canned_report_and_replaces_summary() -> None:
+    chat_session, user1, _ = _ended_session()
+    moderation_service = FakeModerationService()
+    callback = FakeCallbackQuery(
+        data=f"chatrate:spam:{chat_session.id}",
+        message=FakeCallbackMessage(),
+    )
+
+    await report_from_summary(
+        callback,
+        user1,
+        FakeEndedSessionService(chat_session),
+        moderation_service,
+    )
+
+    assert moderation_service.calls == [(chat_session.id, user1.id, "Spam / Ads")]
+    assert callback.answered == [{"text": None, "show_alert": False}]
+    assert callback.message.text_edits == [(SPAM_REPORTED_TEXT, None)]
+
+
+@pytest.mark.asyncio
 async def test_duplicate_rating_tap_shows_unavailable_alert_without_second_score_change() -> None:
     chat_session, user1, user2 = _ended_session()
     service, _, user_repository = _rating_service(chat_session, {user1.id: user1, user2.id: user2})
 
     first_callback = FakeCallbackQuery(
-        data=f"chatrate:bad:{chat_session.id}",
+        data=f"chatrate:great:{chat_session.id}",
         message=FakeCallbackMessage(),
     )
-    await rate_chat_bad(first_callback, user1, service)
+    await rate_chat_good(first_callback, user1, service)
 
     second_callback = FakeCallbackQuery(
-        data=f"chatrate:bad:{chat_session.id}",
+        data=f"chatrate:great:{chat_session.id}",
         message=FakeCallbackMessage(),
     )
-    await rate_chat_bad(second_callback, user1, service)
+    await rate_chat_good(second_callback, user1, service)
 
-    assert first_callback.answered == [{"text": FEEDBACK_SAVED_TEXT, "show_alert": False}]
+    assert first_callback.answered == [{"text": None, "show_alert": False}]
+    assert first_callback.message.text_edits == [(FEEDBACK_THANK_YOU_TEXT, None)]
     assert second_callback.answered == [{"text": CHAT_UNAVAILABLE_TEXT, "show_alert": True}]
     assert second_callback.message.reply_markup_edits == [None]
-    assert user_repository.users[user2.id].rating_score == Decimal("4.8")
+    assert user_repository.users[user2.id].rating_score == Decimal("5.0")
 
 
 def test_partner_id_for_rejects_non_participant() -> None:

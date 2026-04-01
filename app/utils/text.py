@@ -14,7 +14,7 @@ BUY_POINTS_BUTTON_TEXT = "\U0001f4b3 Buy Points"
 FREE_BUTTON_TEXT = "Free"
 
 WELCOME_TEXT = (
-    "\U0001f4ac Anonymous Chat\n\n"
+    "\U0001f4ac nymous Chat\n\n"
     "Meet someone new in seconds.\n"
     "Your identity stays private."
 )
@@ -69,6 +69,8 @@ REPORT_PROMPT_TEXT = "\U0001f6a9 Report Chat\n\nSend a short reason."
 REPORT_DONE_TEXT = "\U0001f6a9 Report Chat\n\nReport sent.\nChat closed."
 FEEDBACK_SAVED_TEXT = "\u2705 Feedback saved"
 FEEDBACK_ALREADY_SAVED_TEXT = "Feedback already saved"
+FEEDBACK_THANK_YOU_TEXT = "\U0001f49c Thanks! Your feedback improves future matches."
+SPAM_REPORTED_TEXT = "\U0001f6ab Spam / Ads reported. Thanks for helping keep chats safe."
 CHAT_UNAVAILABLE_TEXT = "\u26a0\ufe0f This chat is no longer available"
 INVITE_UNAVAILABLE_TEXT = "Invite link unavailable."
 VIP_POINTS_REQUIRED_TEXT = "Need 10 points.\nUse /invite to earn more."
@@ -127,10 +129,10 @@ def build_chat_summary_text(
     message_count: int,
 ) -> str:
     return (
-        "Chat ended\n\n"
-        f"Duration: {humanize_duration(started_at, ended_at)}\n"
-        f"Messages: {message_count}\n\n"
-        "How was this chat?"
+        "\u2757 The chat is over.\n\n"
+        f"\U0001f552 Time together: {humanize_duration(started_at, ended_at)}\n"
+        f"\U0001f4ac Messages: {message_count}\n\n"
+        "How was the chat?"
     )
 
 

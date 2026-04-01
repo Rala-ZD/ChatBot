@@ -178,9 +178,7 @@ class SessionService:
         reason: EndReason,
         ended_by_user_id: int | None,
     ) -> None:
-        should_send_summary = reason in {EndReason.END, EndReason.NEXT, EndReason.REPORT}
-        summary_text = None
-        if should_send_summary:
+        if reason == EndReason.END:
             delivered_count = sum(
                 1
                 for message in chat_session.messages
@@ -191,6 +189,21 @@ class SessionService:
                 chat_session.ended_at,
                 delivered_count,
             )
+            for telegram_id in (chat_session.user1.telegram_id, chat_session.user2.telegram_id):
+                try:
+                    await self.bot.send_message(
+                        telegram_id,
+                        summary_text,
+                        reply_markup=chat_summary_keyboard(chat_session.id),
+                    )
+                except TelegramAPIError as exc:
+                    self.logger.warning(
+                        "session_summary_notify_failed",
+                        session_id=chat_session.id,
+                        telegram_id=telegram_id,
+                        error=str(exc),
+                    )
+            return
 
         recipients = (
             (chat_session.user1_id, chat_session.user1.telegram_id),
@@ -199,6 +212,8 @@ class SessionService:
 
         for user_id, telegram_id in recipients:
             initiated_by_user = ended_by_user_id == user_id
+            if reason == EndReason.NEXT and initiated_by_user:
+                continue
             if reason == EndReason.REPORT and initiated_by_user:
                 continue
 
@@ -212,24 +227,6 @@ class SessionService:
             except TelegramAPIError as exc:
                 self.logger.warning(
                     "session_end_notify_failed",
-                    session_id=chat_session.id,
-                    telegram_id=telegram_id,
-                    error=str(exc),
-                )
-                continue
-
-            if summary_text is None:
-                continue
-
-            try:
-                await self.bot.send_message(
-                    telegram_id,
-                    summary_text,
-                    reply_markup=chat_summary_keyboard(chat_session.id),
-                )
-            except TelegramAPIError as exc:
-                self.logger.warning(
-                    "session_summary_notify_failed",
                     session_id=chat_session.id,
                     telegram_id=telegram_id,
                     error=str(exc),

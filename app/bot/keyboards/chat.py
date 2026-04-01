@@ -13,18 +13,15 @@ def active_chat_keyboard() -> ReplyKeyboardMarkup:
     )
 
 
-def chat_summary_keyboard(session_id: int, *, allow_rating: bool = True) -> InlineKeyboardMarkup:
-    rows: list[list[InlineKeyboardButton]] = []
-    if allow_rating:
-        rows.append(
-            [
-                InlineKeyboardButton(text="\U0001f44d", callback_data=f"chatrate:good:{session_id}"),
-                InlineKeyboardButton(text="\U0001f44e", callback_data=f"chatrate:bad:{session_id}"),
-            ]
-        )
-    rows.append(
+def chat_summary_keyboard(session_id: int) -> InlineKeyboardMarkup:
+    rows = [
         [
-            InlineKeyboardButton(text="\U0001f6a9", callback_data=f"chatrate:report:{session_id}"),
-        ]
-    )
+            InlineKeyboardButton(text="\U0001f60d Great", callback_data=f"chatrate:great:{session_id}"),
+            InlineKeyboardButton(text="\U0001f642 Okay", callback_data=f"chatrate:okay:{session_id}"),
+        ],
+        [
+            InlineKeyboardButton(text="\U0001f621 Bad", callback_data=f"chatrate:bad:{session_id}"),
+            InlineKeyboardButton(text="\U0001f6ab Spam / Ads", callback_data=f"chatrate:spam:{session_id}"),
+        ],
+    ]
     return InlineKeyboardMarkup(inline_keyboard=rows)

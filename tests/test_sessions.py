@@ -117,7 +117,7 @@ async def test_end_session_is_idempotent() -> None:
 
 
 @pytest.mark.asyncio
-async def test_end_session_sends_summary_to_both_users() -> None:
+async def test_end_session_shows_summary_card_only_once_per_user() -> None:
     chat_session = ChatSession(
         id=11,
         user1_id=1,
@@ -163,11 +163,44 @@ async def test_end_session_sends_summary_to_both_users() -> None:
 
     await service.end_session(11, EndReason.END, ended_by_user_id=1)
 
-    assert len(bot.message_payloads) == 4
-    summary_payloads = [payload for payload in bot.message_payloads if payload.text.startswith("Chat ended")]
-    assert len(summary_payloads) == 2
-    assert all("Messages: 1" in payload.text for payload in summary_payloads)
-    assert all(_inline_keyboard_texts(payload.reply_markup) == ["👍", "👎", "🚩"] for payload in summary_payloads)
+    assert len(bot.message_payloads) == 2
+    assert all(payload.text.startswith("❗ The chat is over.") for payload in bot.message_payloads)
+    assert all("💬 Messages: 1" in payload.text for payload in bot.message_payloads)
+    assert all("Chat Ended" not in payload.text for payload in bot.message_payloads)
+    assert all(
+        _inline_keyboard_texts(payload.reply_markup)
+        == ["😍 Great", "🙂 Okay", "😡 Bad", "🚫 Spam / Ads"]
+        for payload in bot.message_payloads
+    )
+
+
+@pytest.mark.asyncio
+async def test_next_end_does_not_send_extra_finding_next_match_message_to_initiator() -> None:
+    chat_session = ChatSession(
+        id=13,
+        user1_id=1,
+        user2_id=2,
+        status=SessionStatus.ACTIVE,
+        started_at=utcnow(),
+    )
+    chat_session.user1 = build_user(1)
+    chat_session.user2 = build_user(2)
+    chat_session.messages = []
+
+    bot = FakeBot()
+    service = SessionService(
+        bot,
+        FakeSessionRepository(chat_session),
+        FakeExportService(),
+        FakeQueueService(),
+        FakeOpsService(),
+    )
+
+    await service.end_session(13, EndReason.NEXT, ended_by_user_id=1)
+
+    assert [payload.chat_id for payload in bot.message_payloads] == [chat_session.user2.telegram_id]
+    assert all("Finding your next match..." not in payload.text for payload in bot.message_payloads)
+    assert bot.message_payloads[0].text == "👋 Chat Ended\nYour match moved on."
 
 
 @pytest.mark.asyncio
@@ -193,8 +226,5 @@ async def test_report_end_skips_summary_for_reporter() -> None:
 
     await service.end_session(12, EndReason.REPORT, ended_by_user_id=1)
 
-    assert [payload.chat_id for payload in bot.message_payloads] == [
-        chat_session.user2.telegram_id,
-        chat_session.user2.telegram_id,
-    ]
-    assert bot.message_payloads[1].text.startswith("Chat ended")
+    assert [payload.chat_id for payload in bot.message_payloads] == [chat_session.user2.telegram_id]
+    assert bot.message_payloads[0].text == "👋 Chat Ended"
