@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     ops_token: str | None = Field(default=None, alias="OPS_TOKEN")
     admin_channel_id: int = Field(alias="ADMIN_CHANNEL_ID")
     admin_user_ids: list[int] = Field(default_factory=list, alias="ADMIN_USER_IDS")
-    minimum_age: int = Field(default=18, alias="MINIMUM_AGE", ge=13)
+    minimum_age: int = Field(default=13, alias="MINIMUM_AGE", ge=13)
     support_username: str = Field(alias="SUPPORT_USERNAME", min_length=3)
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     app_host: str = Field(default="0.0.0.0", alias="APP_HOST")

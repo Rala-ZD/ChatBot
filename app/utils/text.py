@@ -72,8 +72,11 @@ FEEDBACK_ALREADY_SAVED_TEXT = "Feedback already saved"
 FEEDBACK_THANK_YOU_TEXT = "\U0001f49c Thanks! Your feedback improves future matches."
 SPAM_REPORTED_TEXT = "\U0001f6ab Spam / Ads reported. Thanks for helping keep chats safe."
 CHAT_UNAVAILABLE_TEXT = "\u26a0\ufe0f This chat is no longer available"
+PREMIUM_SCREEN_UNAVAILABLE_TEXT = "\u26a0\ufe0f This premium screen is no longer available"
+REGISTRATION_STEP_UNAVAILABLE_TEXT = "\u26a0\ufe0f This registration step is no longer available"
 INVITE_UNAVAILABLE_TEXT = "Invite link unavailable."
 VIP_POINTS_REQUIRED_TEXT = "Need 3 points to unlock 6 hours of premium"
+VIP_CHECKOUT_COMING_SOON_TEXT = "\U0001f48e VIP checkout coming soon"
 PAYMENTS_UNAVAILABLE_TEXT = "\U0001f4b3 Buy Points\n\nTelegram Stars checkout is unavailable.\nTry again later."
 
 
@@ -212,9 +215,9 @@ def build_vip_payment_success_text(*, extended: bool) -> str:
 def build_premium_gender_gate_text() -> str:
     return (
         "\U0001f48e Premium Matching\n\n"
-        "Invite 3 friends to unlock 6 hours of premium.\n\n"
+        "\u2728 No ads\n"
         "\U0001f3af Search by gender\n"
-        "\u2728 Better matching"
+        "\U0001f91d Better matching \u2022 Support the app"
     )
 
 

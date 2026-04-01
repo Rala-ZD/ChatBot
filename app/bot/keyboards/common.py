@@ -26,9 +26,12 @@ def searching_keyboard() -> ReplyKeyboardMarkup:
     )
 
 
-def rules_accept_keyboard() -> InlineKeyboardMarkup:
+def rules_accept_keyboard(owner_telegram_id: int | None = None) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    builder.button(text="Continue", callback_data="register:consent")
+    callback_data = "register:consent"
+    if owner_telegram_id is not None:
+        callback_data = f"{callback_data}:{owner_telegram_id}"
+    builder.button(text="Continue", callback_data=callback_data)
     return builder.as_markup()
 
 

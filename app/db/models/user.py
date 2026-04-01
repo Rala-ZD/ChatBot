@@ -39,6 +39,7 @@ class User(Base):
         Enum(Gender, name="gender_enum", native_enum=False),
         nullable=True,
     )
+    match_region: Mapped[str | None] = mapped_column(String(32), nullable=True)
     preferred_gender: Mapped[PreferredGender] = mapped_column(
         Enum(PreferredGender, name="preferred_gender_enum", native_enum=False),
         default=PreferredGender.ANY,
@@ -111,6 +112,7 @@ class User(Base):
             "vip_until": self.vip_until.isoformat() if self.vip_until else None,
             "age": self.age,
             "gender": self.gender.value if self.gender else None,
+            "match_region": self.match_region,
             "preferred_gender": self.preferred_gender.value if self.preferred_gender else None,
             "interests": self.interests_json,
             "rating_score": float(self.rating_score),

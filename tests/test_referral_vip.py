@@ -10,7 +10,12 @@ from app.bot.handlers.referral import exchange_points_from_referral_tab, points_
 from app.bot.keyboards.premium import premium_points_exchange_keyboard
 from app.services.exceptions import ValidationError
 from app.services.user_service import REFERRAL_REWARD_POINTS, VIP_COST_POINTS, UserService
-from app.utils.text import INVITE_UNAVAILABLE_TEXT, build_referral_premium_text, build_vip_unlocked_text
+from app.utils.text import (
+    INVITE_UNAVAILABLE_TEXT,
+    PREMIUM_SCREEN_UNAVAILABLE_TEXT,
+    build_referral_premium_text,
+    build_vip_unlocked_text,
+)
 from app.utils.time import utcnow
 
 from tests.conftest import FakeRedis, FakeSession, build_user
@@ -75,6 +80,7 @@ class FakeMessage:
 class FakeCallbackQuery:
     data: str
     message: FakeMessage | None
+    from_user: SimpleNamespace
     answered: list[dict[str, object | None]]
 
     async def answer(self, text: str | None = None, show_alert: bool = False) -> None:
@@ -106,6 +112,7 @@ async def test_registration_rewards_inviter_only_once(settings) -> None:
         age=22,
         gender=referred.gender,
         nickname="Sky",
+        match_region=None,
         preferred_gender=referred.preferred_gender,
         interests=["music"],
     )
@@ -159,11 +166,15 @@ async def test_points_handler_shows_referral_summary_and_exchange_only(settings)
     assert message.answers == [
         {
             "text": build_referral_premium_text("testbot", "REF1234567", 4, 1),
-            "reply_markup": premium_points_exchange_keyboard(),
+            "reply_markup": premium_points_exchange_keyboard(inviter.telegram_id),
         }
     ]
     texts = [button.text for row in message.answers[0]["reply_markup"].inline_keyboard for button in row]
-    assert texts == ["✨ Exchange 3 Points for 6 Hours"]
+    callback_data = [
+        button.callback_data for row in message.answers[0]["reply_markup"].inline_keyboard for button in row
+    ]
+    assert texts == ["\u2728 Exchange 3 Points for 6 Hours"]
+    assert callback_data == [f"referral:exchange:{inviter.telegram_id}"]
     assert "Buy Points" not in message.answers[0]["text"]
     assert "Points Wallet" not in message.answers[0]["text"]
     assert "Referral TOP" not in message.answers[0]["text"]
@@ -187,8 +198,9 @@ async def test_exchange_points_from_referral_tab_succeeds(settings) -> None:
     repository = FakeUserRepository({1: user})
     service = FakeUserService(repository, settings, FakeRedis())
     callback = FakeCallbackQuery(
-        data="referral:exchange",
+        data=f"referral:exchange:{user.telegram_id}",
         message=FakeMessage(bot=FakeBot(), answers=[]),
+        from_user=SimpleNamespace(id=user.telegram_id),
         answered=[],
     )
 
@@ -210,8 +222,9 @@ async def test_exchange_points_from_referral_tab_rejects_low_balance(settings) -
     repository = FakeUserRepository({1: user})
     service = FakeUserService(repository, settings, FakeRedis())
     callback = FakeCallbackQuery(
-        data="referral:exchange",
+        data=f"referral:exchange:{user.telegram_id}",
         message=FakeMessage(bot=FakeBot(), answers=[]),
+        from_user=SimpleNamespace(id=user.telegram_id),
         answered=[],
     )
 
@@ -219,5 +232,49 @@ async def test_exchange_points_from_referral_tab_rejects_low_balance(settings) -
 
     assert callback.answered == [
         {"text": "Need 3 points to unlock 6 hours of premium", "show_alert": True}
+    ]
+    assert callback.message.answers == []
+
+
+@pytest.mark.asyncio
+async def test_exchange_points_from_referral_tab_rejects_foreign_owner(settings) -> None:
+    user = build_user(2, points_balance=5)
+    repository = FakeUserRepository({2: user})
+    service = FakeUserService(repository, settings, FakeRedis())
+    callback = FakeCallbackQuery(
+        data="referral:exchange:1001",
+        message=FakeMessage(bot=FakeBot(), answers=[]),
+        from_user=SimpleNamespace(id=user.telegram_id),
+        answered=[],
+    )
+
+    await exchange_points_from_referral_tab(callback, user, service)
+
+    assert user.points_balance == 5
+    assert user.vip_until is None
+    assert callback.answered == [
+        {"text": PREMIUM_SCREEN_UNAVAILABLE_TEXT, "show_alert": True}
+    ]
+    assert callback.message.answers == []
+
+
+@pytest.mark.asyncio
+async def test_exchange_points_from_referral_tab_rejects_legacy_ownerless_callback(settings) -> None:
+    user = build_user(1, points_balance=5)
+    repository = FakeUserRepository({1: user})
+    service = FakeUserService(repository, settings, FakeRedis())
+    callback = FakeCallbackQuery(
+        data="referral:exchange",
+        message=FakeMessage(bot=FakeBot(), answers=[]),
+        from_user=SimpleNamespace(id=user.telegram_id),
+        answered=[],
+    )
+
+    await exchange_points_from_referral_tab(callback, user, service)
+
+    assert user.points_balance == 5
+    assert user.vip_until is None
+    assert callback.answered == [
+        {"text": PREMIUM_SCREEN_UNAVAILABLE_TEXT, "show_alert": True}
     ]
     assert callback.message.answers == []

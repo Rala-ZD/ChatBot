@@ -17,11 +17,17 @@ class FakeUserRepository:
         return user
 
 
-def test_parse_age_rejects_underage(settings) -> None:
+def test_parse_age_allows_under_18_when_minimum_age_is_13(settings) -> None:
+    service = UserService(FakeUserRepository(), settings, FakeRedis())
+
+    assert service.parse_age("17") == 17
+
+
+def test_parse_age_rejects_below_minimum(settings) -> None:
     service = UserService(FakeUserRepository(), settings, FakeRedis())
 
     with pytest.raises(ValidationError):
-        service.parse_age("17")
+        service.parse_age("12")
 
 
 def test_normalize_interests_deduplicates(settings) -> None:
@@ -39,6 +45,7 @@ async def test_register_user_marks_user_as_registered(settings) -> None:
         age=25,
         gender="other",
         nickname="Nova",
+        match_region="sri_lanka",
         preferred_gender="any",
         interests=["music", "travel"],
     )
@@ -47,5 +54,6 @@ async def test_register_user_marks_user_as_registered(settings) -> None:
 
     assert updated.is_registered is True
     assert updated.nickname == "Nova"
+    assert updated.match_region == "sri_lanka"
     assert updated.interests_json == ["music", "travel"]
     assert repository.session.commits == 1

@@ -87,6 +87,7 @@ class UserService:
         user.age = payload.age
         user.gender = payload.gender
         user.nickname = payload.nickname
+        user.match_region = payload.match_region
         user.preferred_gender = payload.preferred_gender
         user.interests_json = payload.interests
         user.is_registered = True

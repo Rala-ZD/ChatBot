@@ -44,6 +44,6 @@ async def start_command(
     await state.set_state(RegistrationStates.awaiting_consent)
     sent_message = await message.answer(
         f"{WELCOME_TEXT}\n\n{RULES_TEXT}",
-        reply_markup=rules_accept_keyboard(),
+        reply_markup=rules_accept_keyboard(app_user.telegram_id if app_user is not None else None),
     )
     await state.update_data(prompt_message_id=sent_message.message_id)

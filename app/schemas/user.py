@@ -10,6 +10,7 @@ class RegistrationPayload(BaseModel):
     age: int = Field(ge=13, le=100)
     gender: Gender
     nickname: str | None = Field(default=None, max_length=32)
+    match_region: str | None = Field(default=None, max_length=32)
     preferred_gender: PreferredGender = PreferredGender.ANY
     interests: list[str] = Field(default_factory=list)
     consented: bool = True
@@ -20,6 +21,14 @@ class RegistrationPayload(BaseModel):
         if value is None:
             return None
         cleaned = value.strip()
+        return cleaned or None
+
+    @field_validator("match_region")
+    @classmethod
+    def normalize_match_region(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = value.strip().lower()
         return cleaned or None
 
     @field_validator("interests", mode="before")
@@ -41,6 +50,7 @@ class UserProfileRead(BaseModel):
     nickname: str | None
     age: int | None
     gender: str | None
+    match_region: str | None
     preferred_gender: str | None
     interests: list[str]
     is_registered: bool
