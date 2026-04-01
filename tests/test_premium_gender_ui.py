@@ -120,9 +120,15 @@ class FakeMessage:
     answers: list[dict[str, object | None]] = field(default_factory=list)
     edits: list[dict[str, object | None]] = field(default_factory=list)
     invoices: list[dict[str, object]] = field(default_factory=list)
+    next_message_id: int = 100
+
+    def __post_init__(self) -> None:
+        self.chat = SimpleNamespace(id=123)
 
     async def answer(self, text: str, reply_markup=None, **_: object) -> None:
         self.answers.append({"text": text, "reply_markup": reply_markup})
+        self.next_message_id += 1
+        return SimpleNamespace(message_id=self.next_message_id)
 
     async def edit_text(self, text: str, reply_markup=None, **_: object) -> None:
         self.edits.append({"text": text, "reply_markup": reply_markup})
@@ -208,8 +214,21 @@ def test_points_package_keyboard_has_expected_packs() -> None:
 
 
 def test_profile_keyboard_is_balanced_for_mobile() -> None:
-    keyboard = profile_edit_keyboard()
-    assert _inline_keyboard_texts(keyboard) == ["Age", "Gender", "Nickname", "Filter", "Interests"]
+    keyboard = profile_edit_keyboard(1001)
+    assert _inline_keyboard_texts(keyboard) == [
+        "\U0001f9d1 Nickname",
+        "\U0001f382 Age",
+        "\U0001f6b9 Gender",
+        "\U0001f3af Filter",
+        "\u2728 Interests",
+    ]
+    assert _inline_keyboard_callback_data(keyboard) == [
+        "profile:edit:nickname:1001",
+        "profile:edit:age:1001",
+        "profile:edit:gender:1001",
+        "profile:edit:preferred_gender:1001",
+        "profile:edit:interests:1001",
+    ]
     assert [len(row) for row in keyboard.inline_keyboard] == [2, 2, 1]
 
 
@@ -219,14 +238,14 @@ def test_profile_summary_uses_card_layout_with_fallbacks() -> None:
 
     assert _profile_summary(user) == (
         "\U0001f464 Your Profile\n\n"
-        "────────────────\n\n"
+        f"{'\u2500' * 16}\n\n"
         "\U0001f3ad Nickname: Add a nickname \u270f\ufe0f\n"
         "\U0001f382 Age: 25\n"
         "\U0001f9d1 Gender: Female\n\n"
         "\U0001f3af Match Preference: Anyone\n"
         "\u2728 Interests: Not set\n\n"
         "\U0001f48e Premium: Locked\n\n"
-        "────────────────"
+        f"{'\u2500' * 16}"
     )
 
 
@@ -236,14 +255,14 @@ def test_profile_summary_shows_active_premium_and_interests() -> None:
 
     assert _profile_summary(user) == (
         "\U0001f464 Your Profile\n\n"
-        "────────────────\n\n"
+        f"{'\u2500' * 16}\n\n"
         "\U0001f3ad Nickname: Alex\n"
         "\U0001f382 Age: 25\n"
         "\U0001f9d1 Gender: Male\n\n"
         "\U0001f3af Match Preference: Female\n"
         "\u2728 Interests: music, travel\n\n"
         "\U0001f48e Premium: Active\n\n"
-        "────────────────"
+        f"{'\u2500' * 16}"
     )
 
 
@@ -252,21 +271,43 @@ async def test_show_profile_uses_new_card_text_and_existing_keyboard() -> None:
     user = build_user(52, interests=["movies"], vip_active=False)
     user.nickname = "Sam"
     message = FakeMessage(bot=FakeBot())
+    state = SimpleNamespace()
 
-    await show_profile(message, user)
+    async def set_state(_value):
+        return None
+
+    async def update_data(**_kwargs):
+        return None
+
+    async def get_data():
+        return {}
+
+    state.set_state = set_state
+    state.update_data = update_data
+    state.get_data = get_data
+
+    await show_profile(message, state, user)
 
     assert [entry["text"] for entry in message.answers] == [
         "\U0001f464 Your Profile\n\n"
-        "────────────────\n\n"
+        f"{'\u2500' * 16}\n\n"
         "\U0001f3ad Nickname: Sam\n"
         "\U0001f382 Age: 25\n"
         "\U0001f9d1 Gender: Other\n\n"
         "\U0001f3af Match Preference: Anyone\n"
         "\u2728 Interests: movies\n\n"
         "\U0001f48e Premium: Locked\n\n"
-        "────────────────"
+        f"{'\u2500' * 16}",
+        "\u270f\ufe0f Edit Profile",
     ]
-    assert _inline_keyboard_texts(message.answers[0]["reply_markup"]) == ["Age", "Gender", "Nickname", "Filter", "Interests"]
+    assert message.answers[0]["reply_markup"] is None
+    assert _inline_keyboard_texts(message.answers[1]["reply_markup"]) == [
+        "\U0001f9d1 Nickname",
+        "\U0001f382 Age",
+        "\U0001f6b9 Gender",
+        "\U0001f3af Filter",
+        "\u2728 Interests",
+    ]
 
 
 def test_premium_gate_text_uses_premium_card_copy() -> None:
