@@ -4,7 +4,7 @@ from decimal import Decimal
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, Enum, ForeignKey, Integer, JSON, Numeric, String
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, Enum, ForeignKey, Integer, JSON, Numeric, String, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -44,7 +44,12 @@ class User(Base):
         default=PreferredGender.ANY,
     )
     interests_json: Mapped[list[str]] = mapped_column(JSON, default=list)
-    rating_score: Mapped[Decimal | None] = mapped_column(Numeric(2, 1), nullable=True)
+    rating_score: Mapped[Decimal] = mapped_column(
+        Numeric(2, 1),
+        default=Decimal("5.0"),
+        server_default=text("5.0"),
+        nullable=False,
+    )
     is_registered: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     is_banned: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     consented_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -108,7 +113,7 @@ class User(Base):
             "gender": self.gender.value if self.gender else None,
             "preferred_gender": self.preferred_gender.value if self.preferred_gender else None,
             "interests": self.interests_json,
-            "rating_score": float(self.rating_score) if self.rating_score is not None else None,
+            "rating_score": float(self.rating_score),
             "is_banned": self.is_banned,
         }
 

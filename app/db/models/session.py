@@ -64,5 +64,9 @@ class ChatSession(Base):
     ratings: Mapped[list["SessionRating"]] = relationship(back_populates="session")
 
     def partner_id_for(self, user_id: int) -> int:
-        return self.user2_id if self.user1_id == user_id else self.user1_id
+        if self.user1_id == user_id:
+            return self.user2_id
+        if self.user2_id == user_id:
+            return self.user1_id
+        raise ValueError("User is not a participant in this session.")
 

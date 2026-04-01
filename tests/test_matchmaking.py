@@ -165,7 +165,7 @@ async def test_matchmaking_matches_compatible_users_once() -> None:
     assert "\U0001f4da Interests: Games, Late Night Chats" in sent_messages[users[1].telegram_id]
     assert "\U0001f3c6 Rating: 1.4" in sent_messages[users[1].telegram_id]
     assert "\U0001f4da Interests: Memes" in sent_messages[users[2].telegram_id]
-    assert "\U0001f3c6 Rating: new" in sent_messages[users[2].telegram_id]
+    assert "\U0001f3c6 Rating: 5.0" in sent_messages[users[2].telegram_id]
 
 
 @pytest.mark.asyncio

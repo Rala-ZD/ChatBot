@@ -95,15 +95,14 @@ def format_interests(interests: Iterable[str]) -> str:
     return ", ".join(items) if items else "Not set"
 
 
-def format_rating_score(rating_score: Decimal | None) -> str:
-    if rating_score is None:
-        return "new"
-    return f"{Decimal(rating_score).quantize(Decimal('0.1'))}"
+def format_rating_score(rating_score: Decimal | str | None) -> str:
+    score = Decimal(str(rating_score)) if rating_score is not None else Decimal("5.0")
+    return f"{score.quantize(Decimal('0.1'))}"
 
 
 def build_match_found_text(
     partner_interests: Iterable[str],
-    partner_rating_score: Decimal | None,
+    partner_rating_score: Decimal | str | None,
 ) -> str:
     formatted_interests = ", ".join(item.title() for item in partner_interests if item.strip())
     interests_text = formatted_interests or "not set"

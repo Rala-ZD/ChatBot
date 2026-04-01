@@ -15,6 +15,7 @@ RATING_STEP = Decimal("0.2")
 RATING_MIN = Decimal("-5.0")
 RATING_MAX = Decimal("5.0")
 RATING_QUANTUM = Decimal("0.1")
+RATING_DEFAULT = Decimal("5.0")
 
 
 @dataclass(slots=True)
@@ -39,11 +40,10 @@ class RatingService:
         from_user_id: int,
         value: SessionRatingValue,
     ) -> RatingSaveResult:
-        chat_session = await self.session_repository.get_with_details(session_id)
+        chat_session = await self.session_repository.get_with_details_for_user(session_id, from_user_id)
         if chat_session is None:
-            raise NotFoundError("Chat not found.")
-
-        if from_user_id not in {chat_session.user1_id, chat_session.user2_id}:
+            if await self.session_repository.get_by_id(session_id) is None:
+                raise NotFoundError("Chat not found.")
             raise AccessDeniedError("You can only rate your own chats.")
         if chat_session.status != SessionStatus.ENDED or chat_session.ended_at is None:
             raise ConflictError("You can rate this chat after it ends.")
@@ -65,7 +65,11 @@ class RatingService:
         if rated_user is None:
             raise NotFoundError("User not found.")
 
-        current_score = rated_user.rating_score if rated_user.rating_score is not None else Decimal("0.0")
+        current_score = (
+            Decimal(rated_user.rating_score)
+            if rated_user.rating_score is not None
+            else RATING_DEFAULT
+        )
         delta = RATING_STEP if value == SessionRatingValue.GOOD else -RATING_STEP
         rated_user.rating_score = self._clamp_score(current_score + delta)
         await self.user_repository.save(rated_user)

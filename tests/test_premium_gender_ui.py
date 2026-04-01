@@ -89,10 +89,10 @@ def test_gender_selection_text_shows_preference() -> None:
 
 def test_search_and_match_copy_use_headlines() -> None:
     assert "Looking for a match" in SEARCHING_TEXT
-    text = build_match_found_text(["games", "night chats"], None)
+    text = build_match_found_text(["games", "night chats"], "5.0")
     assert text.startswith("🐶 Partner found!")
     assert "📚 Interests: Games, Night Chats" in text
-    assert "🏆 Rating: new" in text
+    assert "🏆 Rating: 5.0" in text
 
 
 def test_match_found_text_shows_numeric_rating_when_available() -> None:

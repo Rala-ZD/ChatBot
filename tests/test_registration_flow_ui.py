@@ -242,6 +242,26 @@ async def test_gender_callback_moves_directly_to_interests() -> None:
 
 
 @pytest.mark.asyncio
+async def test_one_users_registration_state_does_not_touch_another_users_state() -> None:
+    first_state = FakeState()
+    second_state = FakeState()
+    await first_state.set_state(RegistrationStates.awaiting_gender)
+    await first_state.update_data(age=24)
+    await second_state.set_state(RegistrationStates.awaiting_age)
+    await second_state.update_data(age=31, prompt_message_id=77)
+
+    prompt_message = FakeMessage(bot=FakeBotApi(), chat_id=123, message_id=22)
+    callback = FakeCallbackQuery(data="register:gender:male", message=prompt_message)
+
+    await collect_gender(callback, first_state)
+
+    assert first_state.current_state == RegistrationStates.awaiting_interests
+    assert first_state.data["gender"] == "male"
+    assert second_state.current_state == RegistrationStates.awaiting_age
+    assert second_state.data == {"age": 31, "prompt_message_id": 77}
+
+
+@pytest.mark.asyncio
 async def test_interest_toggle_updates_state_and_button_labels() -> None:
     state = FakeState()
     await state.set_state(RegistrationStates.awaiting_interests)

@@ -12,33 +12,35 @@ class SessionRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
+    def _details_query(self):
+        return select(ChatSession).options(
+            selectinload(ChatSession.user1),
+            selectinload(ChatSession.user2),
+            selectinload(ChatSession.messages),
+            selectinload(ChatSession.reports),
+        )
+
     async def get_by_id(self, session_id: int) -> ChatSession | None:
         return await self.session.get(ChatSession, session_id)
 
     async def get_with_details(self, session_id: int) -> ChatSession | None:
         result = await self.session.execute(
-            select(ChatSession)
-            .options(
-                selectinload(ChatSession.user1),
-                selectinload(ChatSession.user2),
-                selectinload(ChatSession.messages),
-                selectinload(ChatSession.reports),
+            self._details_query().where(ChatSession.id == session_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def get_with_details_for_user(self, session_id: int, user_id: int) -> ChatSession | None:
+        result = await self.session.execute(
+            self._details_query().where(
+                ChatSession.id == session_id,
+                or_(ChatSession.user1_id == user_id, ChatSession.user2_id == user_id),
             )
-            .where(ChatSession.id == session_id)
         )
         return result.scalar_one_or_none()
 
     async def get_with_details_for_update(self, session_id: int) -> ChatSession | None:
         result = await self.session.execute(
-            select(ChatSession)
-            .options(
-                selectinload(ChatSession.user1),
-                selectinload(ChatSession.user2),
-                selectinload(ChatSession.messages),
-                selectinload(ChatSession.reports),
-            )
-            .where(ChatSession.id == session_id)
-            .with_for_update()
+            self._details_query().where(ChatSession.id == session_id).with_for_update()
         )
         return result.scalar_one_or_none()
 

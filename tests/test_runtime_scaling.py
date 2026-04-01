@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from aiogram.fsm.storage.base import DefaultKeyBuilder, StorageKey
 from aiogram.fsm.storage.redis import RedisStorage
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -44,6 +45,21 @@ def test_dispatcher_uses_redis_storage(settings) -> None:
     )
 
     assert isinstance(dispatcher.storage, RedisStorage)
+
+
+def test_fsm_storage_keys_are_scoped_per_user() -> None:
+    builder = DefaultKeyBuilder(with_bot_id=True, with_destiny=True)
+
+    first_key = builder.build(
+        StorageKey(bot_id=1, chat_id=10, user_id=1001),
+        part="data",
+    )
+    second_key = builder.build(
+        StorageKey(bot_id=1, chat_id=10, user_id=1002),
+        part="data",
+    )
+
+    assert first_key != second_key
 
 
 def test_webhook_route_accepts_updates_in_webhook_mode(settings) -> None:

@@ -45,7 +45,7 @@ async def submit_report(
 ) -> None:
     data = await state.get_data()
     session_id = int(data["session_id"])
-    chat_session = await session_service.session_repository.get_with_details(session_id)
+    chat_session = await session_service.get_session_for_user(session_id, app_user.id)
     if chat_session is None:
         raise ConflictError("This chat is no longer available.")
 

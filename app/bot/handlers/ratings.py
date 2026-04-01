@@ -10,6 +10,7 @@ from app.bot.keyboards.chat import chat_summary_keyboard
 from app.bot.states.report import ReportStates
 from app.db.models.user import User
 from app.services.rating_service import RatingService
+from app.services.session_service import SessionService
 from app.utils.enums import SessionRatingValue
 from app.utils.text import (
     FEEDBACK_ALREADY_SAVED_TEXT,
@@ -43,8 +44,14 @@ async def rate_chat_bad(
 async def report_from_summary(
     callback: CallbackQuery,
     state: FSMContext,
+    app_user: User,
+    session_service: SessionService,
 ) -> None:
     session_id = _parse_session_id(callback.data)
+    chat_session = await session_service.get_session_for_user(session_id, app_user.id)
+    if chat_session is None:
+        await callback.answer("This chat is no longer available.", show_alert=True)
+        return
     await state.set_state(ReportStates.awaiting_reason)
     await state.update_data(session_id=session_id)
     await callback.answer()

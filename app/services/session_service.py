@@ -41,6 +41,9 @@ class SessionService:
     async def get_active_session_for_user(self, user_id: int) -> ChatSession | None:
         return await self.session_repository.get_active_by_user_id(user_id)
 
+    async def get_session_for_user(self, session_id: int, user_id: int) -> ChatSession | None:
+        return await self.session_repository.get_with_details_for_user(session_id, user_id)
+
     async def create_session(self, user1_id: int, user2_id: int) -> ChatSession:
         for user_id in (user1_id, user2_id):
             existing = await self.session_repository.get_active_by_user_id_for_update(user_id)

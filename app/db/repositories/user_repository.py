@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from decimal import Decimal
+
 from aiogram.types import User as TelegramUser
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -49,6 +51,7 @@ class UserRepository:
                 first_name=telegram_user.first_name,
                 referral_code=await self.generate_unique_referral_code(),
                 points_balance=0,
+                rating_score=Decimal("5.0"),
                 last_active_at=now,
             )
             self.session.add(user)

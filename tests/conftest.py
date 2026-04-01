@@ -249,7 +249,7 @@ def build_user(
     referral_code: str | None = None,
     referred_by_user_id: int | None = None,
     points_balance: int = 0,
-    rating_score: Decimal | str | None = None,
+    rating_score: Decimal | str | None = "5.0",
     interests: list[str] | None = None,
     vip_active: bool = False,
 ) -> User:
@@ -261,7 +261,7 @@ def build_user(
         referral_code=referral_code or generate_referral_code(),
         referred_by_user_id=referred_by_user_id,
         points_balance=points_balance,
-        rating_score=Decimal(str(rating_score)) if rating_score is not None else None,
+        rating_score=Decimal(str(rating_score)) if rating_score is not None else Decimal("5.0"),
         vip_until=utcnow() + timedelta(days=1) if vip_active else None,
         age=25,
         gender=Gender(gender),
