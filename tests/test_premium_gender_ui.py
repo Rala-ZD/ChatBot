@@ -94,12 +94,22 @@ def test_search_and_match_copy_use_headlines() -> None:
         "⏳ Usually takes 3–10 seconds"
     )
     text = build_match_found_text(["games", "night chats"], "5.0")
-    assert text.startswith("🐶 Partner found!")
-    assert "📚 Interests: Games, Night Chats" in text
-    assert "🏆 Rating: 5.0" in text
+    assert text == (
+        "🎉 You’ve got a match!\n\n"
+        "👤 Stranger\n"
+        "✨ Interests: Games, Night Chats\n"
+        "⭐ Rating: 5.0\n\n"
+        "💬 Say hi and break the ice 😉\n"
+        "👇 Tap below to control your chat"
+    )
 
 
 def test_match_found_text_shows_numeric_rating_when_available() -> None:
     text = build_match_found_text(["anime"], "1.4")
-    assert "📚 Interests: Anime" in text
-    assert "🏆 Rating: 1.4" in text
+    assert "✨ Interests: Anime" in text
+    assert "⭐ Rating: 1.4" in text
+
+
+def test_match_found_text_uses_not_set_fallback_for_missing_interests() -> None:
+    text = build_match_found_text([], "5.0")
+    assert "✨ Interests: Not set" in text

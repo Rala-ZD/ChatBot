@@ -162,10 +162,46 @@ async def test_matchmaking_matches_compatible_users_once() -> None:
     assert ops_service.search_starts == 2
     assert ops_service.matches_created == 1
     sent_messages = {chat_id: text for chat_id, text in bot.messages}
-    assert "\U0001f4da Interests: Games, Late Night Chats" in sent_messages[users[1].telegram_id]
-    assert "\U0001f3c6 Rating: 1.4" in sent_messages[users[1].telegram_id]
-    assert "\U0001f4da Interests: Memes" in sent_messages[users[2].telegram_id]
-    assert "\U0001f3c6 Rating: 5.0" in sent_messages[users[2].telegram_id]
+    assert sent_messages[users[1].telegram_id].startswith("\U0001f389 You\u2019ve got a match!")
+    assert "\U0001f464 Stranger" in sent_messages[users[1].telegram_id]
+    assert "\u2728 Interests: Games, Late Night Chats" in sent_messages[users[1].telegram_id]
+    assert "\u2b50 Rating: 1.4" in sent_messages[users[1].telegram_id]
+    assert "\U0001f4ac Say hi and break the ice \U0001f609" in sent_messages[users[1].telegram_id]
+    assert "\U0001f447 Tap below to control your chat" in sent_messages[users[1].telegram_id]
+    assert "\u2728 Interests: Memes" in sent_messages[users[2].telegram_id]
+    assert "\u2b50 Rating: 5.0" in sent_messages[users[2].telegram_id]
+
+
+@pytest.mark.asyncio
+async def test_matchmaking_uses_not_set_fallback_for_missing_interests() -> None:
+    bot = FakeBot()
+    users = {
+        1: build_user(1, gender="male", preferred_gender="female", interests=[]),
+        2: build_user(2, gender="female", preferred_gender="male", interests=[]),
+    }
+    waiting_repo = FakeWaitingQueueRepository()
+    session_repo = FakeSessionRepository()
+    session_service = FakeSessionService()
+    queue_service = FakeQueueService()
+    ops_service = FakeOpsService()
+
+    service = MatchService(
+        bot,
+        FakeUserRepository(users),
+        waiting_repo,
+        session_repo,
+        session_service,
+        queue_service,
+        ops_service,
+        match_scan_limit=10,
+    )
+
+    await service.start(users[2])
+    await service.start(users[1])
+
+    sent_messages = {chat_id: text for chat_id, text in bot.messages}
+    assert "\u2728 Interests: Not set" in sent_messages[users[1].telegram_id]
+    assert "\u2728 Interests: Not set" in sent_messages[users[2].telegram_id]
 
 
 @pytest.mark.asyncio

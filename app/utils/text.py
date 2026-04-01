@@ -110,14 +110,14 @@ def build_match_found_text(
     partner_rating_score: Decimal | str | None,
 ) -> str:
     formatted_interests = ", ".join(item.title() for item in partner_interests if item.strip())
-    interests_text = formatted_interests or "not set"
+    interests_text = formatted_interests or "Not set"
     return (
-        "\U0001f436 Partner found!\n\n"
-        "/next - next chat\n"
-        "/end - stop chat\n\n"
-        f"\U0001f4da Interests: {interests_text}\n"
-        f"\U0001f3c6 Rating: {format_rating_score(partner_rating_score)}\n\n"
-        "\U0001f4a1 Hint: start with something simple \U0001f609"
+        "\U0001f389 You\u2019ve got a match!\n\n"
+        "\U0001f464 Stranger\n"
+        f"\u2728 Interests: {interests_text}\n"
+        f"\u2b50 Rating: {format_rating_score(partner_rating_score)}\n\n"
+        "\U0001f4ac Say hi and break the ice \U0001f609\n"
+        "\U0001f447 Tap below to control your chat"
     )
 
 
