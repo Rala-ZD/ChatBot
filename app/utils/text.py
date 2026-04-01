@@ -51,7 +51,11 @@ HELP_TEXT = (
     "/cancel Cancel search or form"
 )
 
-SEARCHING_TEXT = "\U0001f50e Looking for a match...\nTap \u274c Cancel to stop."
+SEARCHING_TEXT = (
+    "\U0001f50e Finding someone for you...\n\n"
+    "\U0001f4a1 Tip: Be friendly \u2014 first message matters \U0001f609\n"
+    "\u23f3 Usually takes 3\u201310 seconds"
+)
 SEARCH_CANCELLED_TEXT = "\U0001f6d1 Search cancelled\nYou can try again anytime."
 NO_ACTIVE_SEARCH_TEXT = "No active search."
 SEARCH_MATCHED_TEXT = "\U0001f389 Match Found\nYou're connected."
@@ -65,6 +69,7 @@ REPORT_PROMPT_TEXT = "\U0001f6a9 Report Chat\n\nSend a short reason."
 REPORT_DONE_TEXT = "\U0001f6a9 Report Chat\n\nReport sent.\nChat closed."
 FEEDBACK_SAVED_TEXT = "\u2705 Feedback saved"
 FEEDBACK_ALREADY_SAVED_TEXT = "Feedback already saved"
+CHAT_UNAVAILABLE_TEXT = "\u26a0\ufe0f This chat is no longer available"
 INVITE_UNAVAILABLE_TEXT = "Invite link unavailable."
 VIP_POINTS_REQUIRED_TEXT = "Need 10 points.\nUse /invite to earn more."
 PAYMENTS_UNAVAILABLE_TEXT = "\U0001f4b3 Buy Points\n\nTelegram Stars checkout is unavailable.\nTry again later."

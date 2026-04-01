@@ -88,7 +88,11 @@ def test_gender_selection_text_shows_preference() -> None:
 
 
 def test_search_and_match_copy_use_headlines() -> None:
-    assert "Looking for a match" in SEARCHING_TEXT
+    assert SEARCHING_TEXT == (
+        "🔎 Finding someone for you...\n\n"
+        "💡 Tip: Be friendly — first message matters 😉\n"
+        "⏳ Usually takes 3–10 seconds"
+    )
     text = build_match_found_text(["games", "night chats"], "5.0")
     assert text.startswith("🐶 Partner found!")
     assert "📚 Interests: Games, Night Chats" in text

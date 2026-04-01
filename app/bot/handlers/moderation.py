@@ -13,7 +13,7 @@ from app.services.exceptions import ConflictError
 from app.services.moderation_service import ModerationService
 from app.services.session_service import SessionService
 from app.utils.enums import EndReason, SessionStatus
-from app.utils.text import REPORT_DONE_TEXT, REPORT_PROMPT_TEXT
+from app.utils.text import CHAT_UNAVAILABLE_TEXT, REPORT_DONE_TEXT, REPORT_PROMPT_TEXT
 
 router = Router(name="moderation")
 router.message.filter(F.chat.type == ChatType.PRIVATE)
@@ -47,7 +47,9 @@ async def submit_report(
     session_id = int(data["session_id"])
     chat_session = await session_service.get_session_for_user(session_id, app_user.id)
     if chat_session is None:
-        raise ConflictError("This chat is no longer available.")
+        await state.clear()
+        await message.answer(CHAT_UNAVAILABLE_TEXT)
+        return
 
     await moderation_service.create_report(chat_session, app_user, message.text or "")
     if chat_session.status == SessionStatus.ACTIVE:

@@ -6,13 +6,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.bot.handlers.ratings import report_from_summary
+from app.bot.handlers.ratings import rate_chat_bad, rate_chat_good, report_from_summary
 from app.bot.handlers.moderation import submit_report
 from app.db.models.session import ChatSession
 from app.services.exceptions import AccessDeniedError, ConflictError
 from app.services.rating_service import RatingService
 from app.utils.enums import EndReason, SessionRatingValue, SessionStatus
-from app.utils.text import REPORT_DONE_TEXT
+from app.utils.text import CHAT_UNAVAILABLE_TEXT, FEEDBACK_SAVED_TEXT, REPORT_DONE_TEXT
 from app.utils.time import utcnow
 
 from tests.conftest import FakeSession, build_user
@@ -266,6 +266,8 @@ class FakeState:
         self.data.update(kwargs)
 
     async def clear(self) -> None:
+        self.data = {}
+        self.state = None
         self.cleared = True
 
 
@@ -328,35 +330,41 @@ async def test_report_submission_for_ended_session_does_not_end_again() -> None:
 
 
 @pytest.mark.asyncio
-async def test_report_submission_rejects_foreign_session_id() -> None:
+async def test_report_submission_clears_stale_session_id() -> None:
     chat_session, _, _ = _ended_session()
     moderation_service = FakeModerationService()
     session_service = FakeEndedSessionService(chat_session)
-    state = FakeState(chat_session.id)
+    state = FakeState(999)
     message = FakeMessage(text="spam", answers=[])
-    outsider = build_user(999)
 
-    with pytest.raises(ConflictError):
-        await submit_report(
-            message,
-            state,
-            outsider,
-            moderation_service,
-            session_service,
-        )
+    await submit_report(
+        message,
+        state,
+        build_user(chat_session.user1_id),
+        moderation_service,
+        session_service,
+    )
 
     assert moderation_service.calls == []
     assert session_service.end_calls == []
+    assert state.cleared is True
+    assert message.answers[-1][0] == CHAT_UNAVAILABLE_TEXT
 
 
 @dataclass
 class FakeCallbackMessage:
     answers: list[str] | None = None
+    reply_markup_edits: list[object | None] | None = None
 
     async def answer(self, text: str, **_: object) -> None:
         if self.answers is None:
             self.answers = []
         self.answers.append(text)
+
+    async def edit_reply_markup(self, reply_markup=None, **_: object) -> None:
+        if self.reply_markup_edits is None:
+            self.reply_markup_edits = []
+        self.reply_markup_edits.append(reply_markup)
 
 
 @dataclass
@@ -388,8 +396,123 @@ async def test_report_from_summary_rejects_foreign_session_id() -> None:
 
     assert state.state is None
     assert state.data == {"session_id": chat_session.id}
-    assert callback.answered == [{"text": "This chat is no longer available.", "show_alert": True}]
+    assert callback.answered == [{"text": CHAT_UNAVAILABLE_TEXT, "show_alert": True}]
     assert callback.message.answers is None
+    assert callback.message.reply_markup_edits == [None]
+
+
+@pytest.mark.asyncio
+async def test_report_from_summary_rejects_active_session_id() -> None:
+    chat_session, user1, _ = _ended_session()
+    chat_session.status = SessionStatus.ACTIVE
+    chat_session.ended_at = None
+    session_service = FakeEndedSessionService(chat_session)
+    callback = FakeCallbackQuery(
+        data=f"chatrate:report:{chat_session.id}",
+        message=FakeCallbackMessage(),
+    )
+    state = FakeState(chat_session.id)
+
+    await report_from_summary(callback, state, user1, session_service)
+
+    assert state.state is None
+    assert callback.answered == [{"text": CHAT_UNAVAILABLE_TEXT, "show_alert": True}]
+    assert callback.message.reply_markup_edits == [None]
+
+
+@pytest.mark.asyncio
+async def test_rate_chat_good_rejects_missing_session_with_alert() -> None:
+    app_user = build_user(1)
+    service, _, _ = _rating_service({}, {app_user.id: app_user})
+    callback = FakeCallbackQuery(
+        data="chatrate:good:999",
+        message=FakeCallbackMessage(),
+    )
+
+    await rate_chat_good(callback, app_user, service)
+
+    assert callback.answered == [{"text": CHAT_UNAVAILABLE_TEXT, "show_alert": True}]
+    assert callback.message.reply_markup_edits == [None]
+
+
+@pytest.mark.asyncio
+async def test_rate_chat_bad_rejects_foreign_session_with_alert() -> None:
+    chat_session, _, partner = _ended_session()
+    outsider = build_user(999)
+    service, _, user_repository = _rating_service(
+        chat_session,
+        {
+            chat_session.user1_id: build_user(chat_session.user1_id),
+            partner.id: partner,
+            outsider.id: outsider,
+        },
+    )
+    callback = FakeCallbackQuery(
+        data=f"chatrate:bad:{chat_session.id}",
+        message=FakeCallbackMessage(),
+    )
+
+    await rate_chat_bad(callback, outsider, service)
+
+    assert callback.answered == [{"text": CHAT_UNAVAILABLE_TEXT, "show_alert": True}]
+    assert callback.message.reply_markup_edits == [None]
+    assert user_repository.users[partner.id].rating_score == Decimal("5.0")
+
+
+@pytest.mark.asyncio
+async def test_rate_chat_good_rejects_active_session_with_alert() -> None:
+    chat_session, user1, user2 = _ended_session()
+    chat_session.status = SessionStatus.ACTIVE
+    chat_session.ended_at = None
+    service, _, user_repository = _rating_service(chat_session, {user1.id: user1, user2.id: user2})
+    callback = FakeCallbackQuery(
+        data=f"chatrate:good:{chat_session.id}",
+        message=FakeCallbackMessage(),
+    )
+
+    await rate_chat_good(callback, user1, service)
+
+    assert callback.answered == [{"text": CHAT_UNAVAILABLE_TEXT, "show_alert": True}]
+    assert callback.message.reply_markup_edits == [None]
+    assert user_repository.users[user2.id].rating_score == Decimal("5.0")
+
+
+@pytest.mark.asyncio
+async def test_rate_chat_good_rejects_invalid_callback_data() -> None:
+    app_user = build_user(1)
+    service, _, _ = _rating_service({}, {app_user.id: app_user})
+    callback = FakeCallbackQuery(
+        data="chatrate:good:not-a-number",
+        message=FakeCallbackMessage(),
+    )
+
+    await rate_chat_good(callback, app_user, service)
+
+    assert callback.answered == [{"text": CHAT_UNAVAILABLE_TEXT, "show_alert": True}]
+    assert callback.message.reply_markup_edits == [None]
+
+
+@pytest.mark.asyncio
+async def test_duplicate_rating_tap_shows_unavailable_alert_without_second_score_change() -> None:
+    chat_session, user1, user2 = _ended_session()
+    service, _, user_repository = _rating_service(chat_session, {user1.id: user1, user2.id: user2})
+
+    first_callback = FakeCallbackQuery(
+        data=f"chatrate:bad:{chat_session.id}",
+        message=FakeCallbackMessage(),
+    )
+    await rate_chat_bad(first_callback, user1, service)
+
+    second_callback = FakeCallbackQuery(
+        data=f"chatrate:bad:{chat_session.id}",
+        message=FakeCallbackMessage(),
+    )
+    await rate_chat_bad(second_callback, user1, service)
+
+    assert first_callback.answered == [{"text": FEEDBACK_SAVED_TEXT, "show_alert": False}]
+    assert second_callback.answered == [{"text": CHAT_UNAVAILABLE_TEXT, "show_alert": True}]
+    assert second_callback.message.reply_markup_edits == [None]
+    assert user_repository.users[user2.id].rating_score == Decimal("4.8")
 
 
 def test_partner_id_for_rejects_non_participant() -> None:

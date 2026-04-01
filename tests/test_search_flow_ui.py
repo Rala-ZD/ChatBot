@@ -110,6 +110,14 @@ async def test_searching_keyboard_contains_only_cancel() -> None:
     assert _reply_keyboard_texts(markup) == [SEARCH_CANCEL_BUTTON_TEXT]
 
 
+def test_searching_text_uses_premium_waiting_copy() -> None:
+    assert SEARCHING_TEXT == (
+        "🔎 Finding someone for you...\n\n"
+        "💡 Tip: Be friendly — first message matters 😉\n"
+        "⏳ Usually takes 3–10 seconds"
+    )
+
+
 @pytest.mark.asyncio
 async def test_start_chat_shows_search_keyboard_when_queued() -> None:
     message = FakeMessage(text="Start Chat")

@@ -9,11 +9,12 @@ from aiogram.types import CallbackQuery
 from app.bot.keyboards.chat import chat_summary_keyboard
 from app.bot.states.report import ReportStates
 from app.db.models.user import User
+from app.services.exceptions import AccessDeniedError, ConflictError, NotFoundError
 from app.services.rating_service import RatingService
 from app.services.session_service import SessionService
-from app.utils.enums import SessionRatingValue
+from app.utils.enums import SessionRatingValue, SessionStatus
 from app.utils.text import (
-    FEEDBACK_ALREADY_SAVED_TEXT,
+    CHAT_UNAVAILABLE_TEXT,
     FEEDBACK_SAVED_TEXT,
     REPORT_PROMPT_TEXT,
 )
@@ -48,9 +49,17 @@ async def report_from_summary(
     session_service: SessionService,
 ) -> None:
     session_id = _parse_session_id(callback.data)
+    if session_id is None:
+        await _answer_chat_unavailable(callback)
+        return
+
     chat_session = await session_service.get_session_for_user(session_id, app_user.id)
-    if chat_session is None:
-        await callback.answer("This chat is no longer available.", show_alert=True)
+    if (
+        chat_session is None
+        or chat_session.status != SessionStatus.ENDED
+        or chat_session.ended_at is None
+    ):
+        await _answer_chat_unavailable(callback)
         return
     await state.set_state(ReportStates.awaiting_reason)
     await state.update_data(session_id=session_id)
@@ -66,7 +75,20 @@ async def _save_rating(
     rating_service: RatingService,
 ) -> None:
     session_id = _parse_session_id(callback.data)
-    result = await rating_service.save_rating(session_id, from_user_id, value)
+    if session_id is None:
+        await _answer_chat_unavailable(callback)
+        return
+
+    try:
+        result = await rating_service.save_rating(session_id, from_user_id, value)
+    except (AccessDeniedError, ConflictError, NotFoundError):
+        await _answer_chat_unavailable(callback)
+        return
+
+    if result.already_saved:
+        await _answer_chat_unavailable(callback)
+        return
+
     if callback.message is not None:
         try:
             await callback.message.edit_reply_markup(
@@ -74,12 +96,23 @@ async def _save_rating(
             )
         except TelegramBadRequest:
             pass
-    await callback.answer(
-        FEEDBACK_ALREADY_SAVED_TEXT if result.already_saved else FEEDBACK_SAVED_TEXT
-    )
+    await callback.answer(FEEDBACK_SAVED_TEXT)
 
 
-def _parse_session_id(data: str | None) -> int:
+async def _answer_chat_unavailable(callback: CallbackQuery) -> None:
+    await callback.answer(CHAT_UNAVAILABLE_TEXT, show_alert=True)
+    if callback.message is None:
+        return
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except TelegramBadRequest:
+        pass
+
+
+def _parse_session_id(data: str | None) -> int | None:
     if data is None:
-        raise ValueError("Missing callback data.")
-    return int(data.rsplit(":", maxsplit=1)[-1])
+        return None
+    try:
+        return int(data.rsplit(":", maxsplit=1)[-1])
+    except (TypeError, ValueError):
+        return None
