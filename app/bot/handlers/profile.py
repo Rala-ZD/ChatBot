@@ -16,7 +16,6 @@ from app.utils.enums import Gender, PreferredGender
 from app.utils.text import (
     format_interests,
     format_preferred_gender,
-    format_premium_access_status,
 )
 
 router = Router(name="profile")
@@ -135,12 +134,15 @@ async def update_preferred_gender(
 
 
 def _profile_summary(user: User) -> str:
+    premium_status = "Active" if user.has_active_vip() else "Locked"
     return (
-        "\U0001f464 Profile\n\n"
-        f"Age: {user.age or 'Not set'}\n"
-        f"Gender: {user.gender.value.title() if user.gender else 'Not set'}\n"
-        f"Nick: {user.nickname or 'Not set'}\n"
-        f"Filter: {format_preferred_gender(user.preferred_gender)}\n"
-        f"Premium: {format_premium_access_status(user.vip_until)}\n"
-        f"Interests: {format_interests(user.interests_json)}"
+        "\U0001f464 Your Profile\n\n"
+        "────────────────\n\n"
+        f"\U0001f3ad Nickname: {user.nickname or 'Add a nickname \u270f\ufe0f'}\n"
+        f"\U0001f382 Age: {user.age or 'Not set'}\n"
+        f"\U0001f9d1 Gender: {user.gender.value.title() if user.gender else 'Not set'}\n\n"
+        f"\U0001f3af Match Preference: {format_preferred_gender(user.preferred_gender)}\n"
+        f"\u2728 Interests: {format_interests(user.interests_json)}\n\n"
+        f"\U0001f48e Premium: {premium_status}\n\n"
+        "────────────────"
     )

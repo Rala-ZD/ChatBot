@@ -15,6 +15,7 @@ from app.bot.handlers.select_gender import (
     preview_vip_plan,
     return_to_select_gender_gate,
 )
+from app.bot.handlers.profile import _profile_summary, show_profile
 from app.bot.keyboards.chat import active_chat_keyboard
 from app.bot.keyboards.common import main_menu_keyboard
 from app.bot.keyboards.payments import points_package_keyboard, points_wallet_keyboard
@@ -210,6 +211,62 @@ def test_profile_keyboard_is_balanced_for_mobile() -> None:
     keyboard = profile_edit_keyboard()
     assert _inline_keyboard_texts(keyboard) == ["Age", "Gender", "Nickname", "Filter", "Interests"]
     assert [len(row) for row in keyboard.inline_keyboard] == [2, 2, 1]
+
+
+def test_profile_summary_uses_card_layout_with_fallbacks() -> None:
+    user = build_user(50, gender="female", preferred_gender="any", interests=[], vip_active=False)
+    user.nickname = None
+
+    assert _profile_summary(user) == (
+        "\U0001f464 Your Profile\n\n"
+        "────────────────\n\n"
+        "\U0001f3ad Nickname: Add a nickname \u270f\ufe0f\n"
+        "\U0001f382 Age: 25\n"
+        "\U0001f9d1 Gender: Female\n\n"
+        "\U0001f3af Match Preference: Anyone\n"
+        "\u2728 Interests: Not set\n\n"
+        "\U0001f48e Premium: Locked\n\n"
+        "────────────────"
+    )
+
+
+def test_profile_summary_shows_active_premium_and_interests() -> None:
+    user = build_user(51, gender="male", preferred_gender="female", interests=["music", "travel"], vip_active=True)
+    user.nickname = "Alex"
+
+    assert _profile_summary(user) == (
+        "\U0001f464 Your Profile\n\n"
+        "────────────────\n\n"
+        "\U0001f3ad Nickname: Alex\n"
+        "\U0001f382 Age: 25\n"
+        "\U0001f9d1 Gender: Male\n\n"
+        "\U0001f3af Match Preference: Female\n"
+        "\u2728 Interests: music, travel\n\n"
+        "\U0001f48e Premium: Active\n\n"
+        "────────────────"
+    )
+
+
+@pytest.mark.asyncio
+async def test_show_profile_uses_new_card_text_and_existing_keyboard() -> None:
+    user = build_user(52, interests=["movies"], vip_active=False)
+    user.nickname = "Sam"
+    message = FakeMessage(bot=FakeBot())
+
+    await show_profile(message, user)
+
+    assert [entry["text"] for entry in message.answers] == [
+        "\U0001f464 Your Profile\n\n"
+        "────────────────\n\n"
+        "\U0001f3ad Nickname: Sam\n"
+        "\U0001f382 Age: 25\n"
+        "\U0001f9d1 Gender: Other\n\n"
+        "\U0001f3af Match Preference: Anyone\n"
+        "\u2728 Interests: movies\n\n"
+        "\U0001f48e Premium: Locked\n\n"
+        "────────────────"
+    ]
+    assert _inline_keyboard_texts(message.answers[0]["reply_markup"]) == ["Age", "Gender", "Nickname", "Filter", "Interests"]
 
 
 def test_premium_gate_text_uses_premium_card_copy() -> None:
