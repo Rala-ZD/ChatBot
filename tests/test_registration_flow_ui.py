@@ -181,7 +181,7 @@ async def test_start_tracks_prompt_message_id_for_new_user_with_owned_consent_bu
     message = FakeMessage(bot=bot, chat_id=123, message_id=1, text="/start")
     app_user = build_user(1, is_registered=False)
 
-    await start_command(message, state, app_user, True, FakeUserService(), None)
+    await start_command(message, state, app_user, True, FakeUserService(), SimpleNamespace(), None)
 
     assert state.current_state == RegistrationStates.awaiting_consent
     assert state.data["prompt_message_id"] == message.answers[-1].message_id

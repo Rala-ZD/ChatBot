@@ -30,6 +30,7 @@ async def help_message(message: Message) -> None:
     await message.answer(HELP_TEXT, reply_markup=main_menu_keyboard())
 
 
+@router.message(Command("rules"))
 @router.message(F.text == "Safety")
 async def rules_message(message: Message) -> None:
     await message.answer(RULES_TEXT, reply_markup=main_menu_keyboard())
@@ -56,10 +57,7 @@ async def cancel_action(
 
     active_session = await session_service.get_active_session_for_user(app_user.id)
     if active_session is not None:
-        if message.text == SEARCH_CANCEL_BUTTON_TEXT:
-            await message.answer(SEARCH_MATCHED_TEXT, reply_markup=active_chat_keyboard())
-        else:
-            await message.answer("Use /end or /next in chat.", reply_markup=active_chat_keyboard())
+        await message.answer(SEARCH_MATCHED_TEXT, reply_markup=active_chat_keyboard())
         return
 
     cancelled = await match_service.cancel_waiting(app_user.id)
@@ -69,10 +67,7 @@ async def cancel_action(
 
     active_session = await session_service.get_active_session_for_user(app_user.id)
     if active_session is not None:
-        if message.text == SEARCH_CANCEL_BUTTON_TEXT:
-            await message.answer(SEARCH_MATCHED_TEXT, reply_markup=active_chat_keyboard())
-        else:
-            await message.answer("Use /end or /next in chat.", reply_markup=active_chat_keyboard())
+        await message.answer(SEARCH_MATCHED_TEXT, reply_markup=active_chat_keyboard())
         return
 
     await message.answer(NO_ACTIVE_SEARCH_TEXT, reply_markup=main_menu_keyboard())

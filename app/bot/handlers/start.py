@@ -6,11 +6,13 @@ from aiogram.filters import CommandObject, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
-from app.bot.keyboards.common import main_menu_keyboard, rules_accept_keyboard
+from app.bot.handlers.matchmaking import start_chat_flow
+from app.bot.keyboards.common import rules_accept_keyboard
 from app.bot.states.registration import RegistrationStates
 from app.db.models.user import User
+from app.services.match_service import MatchService
 from app.services.user_service import UserService
-from app.utils.text import RETURNING_HOME_TEXT, RULES_TEXT, WELCOME_TEXT
+from app.utils.text import RULES_TEXT, WELCOME_TEXT
 
 router = Router(name="start")
 router.message.filter(F.chat.type == ChatType.PRIVATE)
@@ -23,6 +25,7 @@ async def start_command(
     app_user: User | None,
     app_user_created: bool,
     user_service: UserService,
+    match_service: MatchService,
     command: CommandObject | None = None,
 ) -> None:
     await state.clear()
@@ -35,10 +38,7 @@ async def start_command(
         )
 
     if app_user and app_user.is_registered:
-        await message.answer(
-            RETURNING_HOME_TEXT,
-            reply_markup=main_menu_keyboard(),
-        )
+        await start_chat_flow(message, app_user, match_service)
         return
 
     await state.set_state(RegistrationStates.awaiting_consent)

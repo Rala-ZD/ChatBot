@@ -16,6 +16,10 @@ router.message.filter(F.chat.type == ChatType.PRIVATE)
 
 @router.message(F.text == "Start Chat")
 async def start_chat(message: Message, app_user: User, match_service: MatchService) -> None:
+    await start_chat_flow(message, app_user, match_service)
+
+
+async def start_chat_flow(message: Message, app_user: User, match_service: MatchService) -> None:
     outcome = await match_service.start(app_user)
     await _respond_to_match_outcome(message, outcome)
 

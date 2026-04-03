@@ -11,6 +11,7 @@ from redis.asyncio import Redis
 from app.api.health import router as health_router
 from app.api.ops import router as ops_router
 from app.api.telegram import router as telegram_router
+from app.bot.commands import register_bot_commands
 from app.bot.dispatcher import create_dispatcher
 from app.config import Settings, get_settings
 from app.db.session import create_engine, create_session_factory
@@ -43,6 +44,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         polling_task: asyncio.Task[None] | None = None
 
         try:
+            await register_bot_commands(bot)
             if app_settings.bot_delivery_mode == "polling":
                 await bot.delete_webhook(drop_pending_updates=False)
                 polling_task = asyncio.create_task(dispatcher.start_polling(bot))
